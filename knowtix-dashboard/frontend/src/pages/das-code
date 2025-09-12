@@ -1,0 +1,7760 @@
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  FaBell, FaUserCircle, FaMoon, FaSun, FaChartBar, FaCalendarAlt,
+  FaTasks, FaGraduationCap, FaBookOpen, FaBrain, FaStickyNote,
+  FaComments, FaCog, FaHome, FaPlus, FaArrowRight, FaFolder,
+  FaEdit, FaTrash, FaSave, FaTimes, FaEllipsisV, FaMicrophone,
+  FaFileUpload, FaLock, FaSignOutAlt, FaSearch, FaQuestionCircle, 
+  FaStar, FaRegStar, FaFolderPlus, FaRegStickyNote, FaChartLine, 
+  FaGlobe, FaFilter, FaSort, FaSortAmountDown, FaSortAmountUpAlt, 
+  FaCheck, FaTimesCircle, FaClock, FaBook, FaUserFriends, FaVideo, 
+  FaChalkboardTeacher, FaHistory, FaTrophy, FaMedal, FaCertificate, 
+  FaLightbulb, FaLaptopCode, FaAtom, FaFlask, FaDna, FaLandmark, 
+  FaGlobeAmericas, FaFire, FaCode, FaFilePdf, FaFileAlt, FaDownload, 
+  FaFolderOpen, FaBookmark, FaExclamationTriangle, FaInfoCircle, 
+  FaPlay, FaPause, FaStop, FaRedo, FaFlag, FaPrint, FaRuler, FaCube, 
+  FaSquare, FaCircle, FaFilePowerpoint, FaFileWord, FaFileExcel, 
+  FaImage, FaCalculator, FaMagic, FaShapes, FaRobot, FaKey,
+  FaTable as FaTableIcon, FaFile, FaFolder as FaFolderSolid,
+  FaFileArchive, FaFileImage, FaFileCode, FaFileAudio, FaFileVideo,
+  FaSearchPlus, FaSearchMinus, FaCompress, FaUndo, FaSync, FaEye,
+  FaTh, FaList, FaPaperPlane, FaShare, FaPlayCircle, FaTerminal,
+  FaDatabase, FaNetworkWired, FaServer, FaCloudDownloadAlt,
+  FaUserGraduate, FaChalkboard, FaProjectDiagram, FaLanguage,
+  FaBrain as FaBrainIcon, FaCogs, FaChartPie, FaChartLine as FaChartLineIcon,
+  FaBookReader, FaUserTie, FaGraduationCap as FaGraduationCapIcon,
+  FaDesktop   // ✅ added missing import
+} from 'react-icons/fa';
+import Calendar from 'react-calendar';
+import { Bar, Line, Doughnut, Pie, Radar, PolarArea } from 'react-chartjs-2';
+import logo from '../assets/knowtix-logo.png';
+import 'react-calendar/dist/Calendar.css';
+import '../assets/dashboard.css';
+import '../assets/file-preview-modal.css';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  RadialLinearScale
+} from 'chart.js';
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { python } from '@codemirror/lang-python';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { java } from '@codemirror/lang-java';   // ✅ works if installed
+import { cpp } from '@codemirror/lang-cpp';     // ✅ works if installed
+import { oneDark } from '@codemirror/theme-one-dark';
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale, LinearScale, BarElement, PointElement, LineElement,
+  ArcElement, Title, Tooltip, Legend, Filler, RadialLinearScale
+);
+// Constants
+const MOCK_EXAMS = [
+  { id: 1, subject: 'Advanced Mathematics', date: '2025-08-15', type: 'Final Exam', duration: '3 hours' },
+  { id: 2, subject: 'Computer Science', date: '2025-08-20', type: 'Midterm', duration: '2 hours' },
+  { id: 3, subject: 'English Literature', date: '2025-08-25', type: 'Assessment', duration: '1.5 hours' },
+];
+const TASK_STATUSES = [
+  { key: 'pending', label: 'Pending', color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)' },
+  { key: 'ongoing', label: 'Ongoing', color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)' },
+  { key: 'completed', label: 'Completed', color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)' }
+];
+const NAVIGATION_ITEMS = [
+  { path: '/dashboard', label: 'Dashboard', icon: FaHome, tabKey: 'dashboard' },
+  { path: '/study-material', label: 'Study Materials', icon: FaBookOpen, tabKey: 'materials' },
+  { path: '/quiz', label: 'Assessments', icon: FaBrain, tabKey: 'quiz' },
+  { path: '/calendar', label: 'Calendar', icon: FaCalendarAlt, tabKey: 'calendar' },
+  { path: '/notes', label: 'Notes', icon: FaStickyNote, tabKey: 'notes' },
+  { path: '/rtc', label: 'Collaboration', icon: FaComments, tabKey: 'collaboration' },
+  { path: '/timer', label: 'Timer', icon: FaClock, tabKey: 'timer' },
+  { path: '/math-tools', label: 'Math Tools', icon: FaCalculator, tabKey: 'math-tools' },
+  { path: '/code-editor', label: 'Code Editor', icon: FaCode, tabKey: 'code-editor' },
+  { path: '/ai-content', label: 'AI Content', icon: FaRobot, tabKey: 'ai-content' },
+  { path: '/achievements', label: 'Achievements', icon: FaTrophy, tabKey: 'achievements' },
+  { path: '/resources', label: 'Resources', icon: FaGlobe, tabKey: 'resources' },
+  { path: '/formulas', label: 'Formulas', icon: FaShapes, tabKey: 'formulas' },
+  { path: '/settings', label: 'Settings', icon: FaCog, tabKey: 'settings' },
+];
+// Enhanced assessment subjects with difficulty levels and question counts
+const ASSESSMENT_SUBJECTS = [
+  {
+    id: 'science',
+    name: 'Science',
+    color: '#3b82f6',
+    icon: FaAtom,
+    totalQuestions: 50,
+    difficultyDistribution: {
+      easy: 20,
+      medium: 20,
+      hard: 10
+    },
+    categories: ['Physics', 'Chemistry', 'Biology', 'Earth Science'],
+    questions: [
+      {
+        id: 1,
+        question: "What is the chemical symbol for gold?",
+        options: ["Go", "Gd", "Au", "Ag"],
+        answer: 2,
+        explanation: "The chemical symbol for gold is Au, from the Latin word 'aurum'.",
+        difficulty: 'easy',
+        category: 'Chemistry'
+      },
+      {
+        id: 2,
+        question: "What is the powerhouse of the cell?",
+        options: ["Nucleus", "Mitochondria", "Ribosome", "Endoplasmic Reticulum"],
+        answer: 1,
+        explanation: "Mitochondria are known as the powerhouse of the cell because they generate most of the cell's supply of adenosine triphosphate (ATP).",
+        difficulty: 'easy',
+        category: 'Biology'
+      },
+      {
+        id: 3,
+        question: "What is the speed of light in vacuum?",
+        options: ["299,792 km/s", "150,000 km/s", "399,792 km/s", "199,792 km/s"],
+        answer: 0,
+        explanation: "The speed of light in vacuum is 299,792 kilometers per second.",
+        difficulty: 'medium',
+        category: 'Physics'
+      },
+      {
+        id: 4,
+        question: "Which gas makes up the majority of Earth's atmosphere?",
+        options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"],
+        answer: 2,
+        explanation: "Nitrogen makes up about 78% of Earth's atmosphere, making it the most abundant gas.",
+        difficulty: 'easy',
+        category: 'Earth Science'
+      },
+      {
+        id: 5,
+        question: "What is the hardest natural substance on Earth?",
+        options: ["Gold", "Iron", "Diamond", "Silver"],
+        answer: 2,
+        explanation: "Diamond is the hardest natural substance on Earth, scoring 10 on the Mohs scale of mineral hardness.",
+        difficulty: 'medium',
+        category: 'Earth Science'
+      },
+      {
+        id: 6,
+        question: "What is the process by which plants make their own food?",
+        options: ["Respiration", "Photosynthesis", "Digestion", "Transpiration"],
+        answer: 1,
+        explanation: "Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to create oxygen and energy in the form of sugar.",
+        difficulty: 'easy',
+        category: 'Biology'
+      },
+      {
+        id: 7,
+        question: "What is the smallest unit of matter?",
+        options: ["Molecule", "Atom", "Cell", "Electron"],
+        answer: 1,
+        explanation: "An atom is the smallest unit of matter that retains the properties of an element.",
+        difficulty: 'easy',
+        category: 'Chemistry'
+      },
+      {
+        id: 8,
+        question: "Which planet is known as the Red Planet?",
+        options: ["Venus", "Jupiter", "Mars", "Saturn"],
+        answer: 2,
+        explanation: "Mars is known as the Red Planet due to its reddish appearance, caused by iron oxide (rust) on its surface.",
+        difficulty: 'easy',
+        category: 'Earth Science'
+      },
+      {
+        id: 9,
+        question: "What is the main function of the kidneys?",
+        options: ["Produce insulin", "Filter blood", "Pump blood", "Digest food"],
+        answer: 1,
+        explanation: "The kidneys filter blood to remove waste products and excess substances, producing urine.",
+        difficulty: 'medium',
+        category: 'Biology'
+      },
+      {
+        id: 10,
+        question: "What is the chemical formula for water?",
+        options: ["H2O", "CO2", "O2", "NaCl"],
+        answer: 0,
+        explanation: "Water has the chemical formula H2O, meaning it consists of two hydrogen atoms and one oxygen atom.",
+        difficulty: 'easy',
+        category: 'Chemistry'
+      },
+      {
+        id: 11,
+        question: "Which force keeps planets in orbit around the sun?",
+        options: ["Magnetic force", "Electromagnetic force", "Gravitational force", "Nuclear force"],
+        answer: 2,
+        explanation: "Gravitational force is the attraction between objects that have mass, and it keeps planets in orbit around the sun.",
+        difficulty: 'medium',
+        category: 'Physics'
+      },
+      {
+        id: 12,
+        question: "What is the study of fossils called?",
+        options: ["Anthropology", "Archaeology", "Paleontology", "Geology"],
+        answer: 2,
+        explanation: "Paleontology is the scientific study of fossils to understand the history of life on Earth.",
+        difficulty: 'hard',
+        category: 'Earth Science'
+      },
+      {
+        id: 13,
+        question: "What is the most abundant gas in the universe?",
+        options: ["Oxygen", "Carbon", "Nitrogen", "Hydrogen"],
+        answer: 3,
+        explanation: "Hydrogen is the most abundant element in the universe, making up about 75% of all normal matter.",
+        difficulty: 'medium',
+        category: 'Chemistry'
+      },
+      {
+        id: 14,
+        question: "What is the process of cell division called?",
+        options: ["Osmosis", "Mitosis", "Meiosis", "Diffusion"],
+        answer: 1,
+        explanation: "Mitosis is the process of cell division that results in two identical daughter cells.",
+        difficulty: 'medium',
+        category: 'Biology'
+      },
+      {
+        id: 15,
+        question: "What is the largest organ in the human body?",
+        options: ["Liver", "Brain", "Skin", "Heart"],
+        answer: 2,
+        explanation: "The skin is the largest organ in the human body, with a total area of about 20 square feet.",
+        difficulty: 'easy',
+        category: 'Biology'
+      },
+      {
+        id: 16,
+        question: "What is the main component of the sun?",
+        options: ["Oxygen", "Hydrogen", "Helium", "Carbon"],
+        answer: 1,
+        explanation: "Hydrogen makes up about 74% of the sun's mass, with helium being the second most abundant element at about 24%.",
+        difficulty: 'medium',
+        category: 'Physics'
+      },
+      {
+        id: 17,
+        question: "What is the unit of electric current?",
+        options: ["Volt", "Ohm", "Ampere", "Watt"],
+        answer: 2,
+        explanation: "The ampere (A) is the SI unit of electric current, representing the flow of electric charge.",
+        difficulty: 'medium',
+        category: 'Physics'
+      },
+      {
+        id: 18,
+        question: "What is the process by which a liquid turns into a gas?",
+        options: ["Condensation", "Freezing", "Evaporation", "Sublimation"],
+        answer: 2,
+        explanation: "Evaporation is the process by which a liquid turns into a gas at a temperature below its boiling point.",
+        difficulty: 'medium',
+        category: 'Chemistry'
+      },
+      {
+        id: 19,
+        question: "What is the study of weather called?",
+        options: ["Astronomy", "Meteorology", "Geology", "Oceanography"],
+        answer: 1,
+        explanation: "Meteorology is the scientific study of the atmosphere and weather phenomena.",
+        difficulty: 'easy',
+        category: 'Earth Science'
+      },
+      {
+        id: 20,
+        question: "What is the chemical symbol for sodium?",
+        options: ["So", "Na", "Sd", "Nm"],
+        answer: 1,
+        explanation: "The chemical symbol for sodium is Na, from the Latin word 'natrium'.",
+        difficulty: 'easy',
+        category: 'Chemistry'
+      }
+    ]
+  },
+  {
+    id: 'maths',
+    name: 'Mathematics',
+    color: '#10b981',
+    icon: FaChartLine,
+    totalQuestions: 50,
+    difficultyDistribution: {
+      easy: 15,
+      medium: 25,
+      hard: 10
+    },
+    categories: ['Algebra', 'Geometry', 'Calculus', 'Statistics'],
+    questions: [
+      {
+        id: 1,
+        question: "What is the value of π (pi) approximately?",
+        options: ["3.14", "2.71", "1.62", "4.13"],
+        answer: 0,
+        explanation: "Pi (π) is approximately 3.14159, often rounded to 3.14 for calculations.",
+        difficulty: 'easy',
+        category: 'Geometry'
+      },
+      {
+        id: 2,
+        question: "What is the derivative of x²?",
+        options: ["2x", "x²", "2x²", "x"],
+        answer: 0,
+        explanation: "The derivative of x² is 2x using the power rule of differentiation.",
+        difficulty: 'medium',
+        category: 'Calculus'
+      },
+      {
+        id: 3,
+        question: "What is the Pythagorean theorem?",
+        options: ["a² + b² = c²", "a + b = c", "a² - b² = c²", "a × b = c"],
+        answer: 0,
+        explanation: "The Pythagorean theorem states that in a right triangle, the square of the hypotenuse (c) equals the sum of squares of the other two sides (a and b).",
+        difficulty: 'medium',
+        category: 'Geometry'
+      },
+      {
+        id: 4,
+        question: "What is the area of a circle with radius r?",
+        options: ["πr", "2πr", "πr²", "2πr²"],
+        answer: 2,
+        explanation: "The area of a circle is π times the square of its radius (πr²).",
+        difficulty: 'easy',
+        category: 'Geometry'
+      },
+      {
+        id: 5,
+        question: "What is the value of 5! (5 factorial)?",
+        options: ["25", "120", "100", "20"],
+        answer: 1,
+        explanation: "5 factorial (5!) is 5 × 4 × 3 × 2 × 1 = 120.",
+        difficulty: 'medium',
+        category: 'Algebra'
+      },
+      {
+        id: 6,
+        question: "What is the quadratic formula?",
+        options: ["x = [-b ± √(b² - 4ac)] / 2a", "x = [b ± √(b² - 4ac)] / 2a", "x = [-b ± √(b² + 4ac)] / 2a", "x = [b ± √(b² + 4ac)] / 2a"],
+        answer: 0,
+        explanation: "The quadratic formula is x = [-b ± √(b² - 4ac)] / 2a, used to find the roots of a quadratic equation ax² + bx + c = 0.",
+        difficulty: 'hard',
+        category: 'Algebra'
+      },
+      {
+        id: 7,
+        question: "What is the sum of angles in a triangle?",
+        options: ["90°", "180°", "270°", "360°"],
+        answer: 1,
+        explanation: "The sum of the interior angles in any triangle is always 180 degrees.",
+        difficulty: 'easy',
+        category: 'Geometry'
+      },
+      {
+        id: 8,
+        question: "What is the value of i² in complex numbers?",
+        options: ["1", "-1", "i", "-i"],
+        answer: 1,
+        explanation: "In complex numbers, i is defined as the square root of -1, so i² = -1.",
+        difficulty: 'medium',
+        category: 'Algebra'
+      },
+      {
+        id: 9,
+        question: "What is the logarithm of 100 to base 10?",
+        options: ["1", "2", "10", "100"],
+        answer: 1,
+        explanation: "The logarithm of 100 to base 10 is 2, because 10² = 100.",
+        difficulty: 'easy',
+        category: 'Algebra'
+      },
+      {
+        id: 10,
+        question: "What is the sine of 90 degrees?",
+        options: ["0", "1", "-1", "0.5"],
+        answer: 1,
+        explanation: "The sine of 90 degrees is 1.",
+        difficulty: 'easy',
+        category: 'Geometry'
+      },
+      {
+        id: 11,
+        question: "What is the volume of a sphere with radius r?",
+        options: ["(4/3)πr³", "4πr²", "πr²", "2πr"],
+        answer: 0,
+        explanation: "The volume of a sphere is (4/3)πr³, where r is the radius.",
+        difficulty: 'medium',
+        category: 'Geometry'
+      },
+      {
+        id: 12,
+        question: "What is the value of the golden ratio?",
+        options: ["1.414", "1.618", "2.718", "3.142"],
+        answer: 1,
+        explanation: "The golden ratio is approximately 1.618, often represented by the Greek letter phi (φ).",
+        difficulty: 'hard',
+        category: 'Geometry'
+      },
+      {
+        id: 13,
+        question: "What is the probability of rolling a 6 on a standard die?",
+        options: ["1/2", "1/4", "1/6", "1/3"],
+        answer: 2,
+        explanation: "A standard die has 6 faces, so the probability of rolling any specific number is 1/6.",
+        difficulty: 'medium',
+        category: 'Statistics'
+      },
+      {
+        id: 14,
+        question: "What is the integral of 1/x?",
+        options: ["ln|x| + C", "x + C", "1/x² + C", "e^x + C"],
+        answer: 0,
+        explanation: "The integral of 1/x is the natural logarithm of the absolute value of x, plus a constant of integration (ln|x| + C).",
+        difficulty: 'hard',
+        category: 'Calculus'
+      },
+      {
+        id: 15,
+        question: "What is the sum of the first n natural numbers?",
+        options: ["n", "n²", "n(n+1)/2", "n(n-1)/2"],
+        answer: 2,
+        explanation: "The sum of the first n natural numbers is given by the formula n(n+1)/2.",
+        difficulty: 'medium',
+        category: 'Algebra'
+      },
+      {
+        id: 16,
+        question: "What is the value of e (Euler's number) approximately?",
+        options: ["2.718", "3.142", "1.618", "1.414"],
+        answer: 0,
+        explanation: "Euler's number (e) is approximately 2.71828, often rounded to 2.718.",
+        difficulty: 'medium',
+        category: 'Algebra'
+      },
+      {
+        id: 17,
+        question: "What is the cosine of 0 degrees?",
+        options: ["0", "1", "-1", "0.5"],
+        answer: 1,
+        explanation: "The cosine of 0 degrees is 1.",
+        difficulty: 'easy',
+        category: 'Geometry'
+      },
+      {
+        id: 18,
+        question: "What is the determinant of a 2x2 matrix [[a,b],[c,d]]?",
+        options: ["a+b+c+d", "a×b×c×d", "ad-bc", "ac-bd"],
+        answer: 2,
+        explanation: "The determinant of a 2x2 matrix [[a,b],[c,d]] is calculated as ad - bc.",
+        difficulty: 'hard',
+        category: 'Algebra'
+      },
+      {
+        id: 19,
+        question: "What is the mean of the numbers 2, 4, 6, 8, 10?",
+        options: ["4", "5", "6", "7"],
+        answer: 2,
+        explanation: "The mean is calculated by summing all values (2+4+6+8+10=30) and dividing by the count of values (5), resulting in 6.",
+        difficulty: 'easy',
+        category: 'Statistics'
+      },
+      {
+        id: 20,
+        question: "What is the value of 2^10?",
+        options: ["20", "100", "512", "1024"],
+        answer: 3,
+        explanation: "2^10 (2 raised to the power of 10) equals 1024.",
+        difficulty: 'medium',
+        category: 'Algebra'
+      }
+    ]
+  },
+  {
+    id: 'gk',
+    name: 'General Knowledge',
+    color: '#f59e0b',
+    icon: FaGlobeAmericas,
+    totalQuestions: 50,
+    difficultyDistribution: {
+      easy: 20,
+      medium: 20,
+      hard: 10
+    },
+    categories: ['History', 'Geography', 'Politics', 'Arts'],
+    questions: [
+      {
+        id: 1,
+        question: "Who is known as the 'Father of the Nation' in India?",
+        options: ["Jawaharlal Nehru", "Mahatma Gandhi", "Subhash Chandra Bose", "Sardar Patel"],
+        answer: 1,
+        explanation: "Mahatma Gandhi is widely recognized as the 'Father of the Nation' in India for his leadership in the country's independence movement.",
+        difficulty: 'easy',
+        category: 'History'
+      },
+      {
+        id: 2,
+        question: "Which is the smallest country in the world?",
+        options: ["Monaco", "Vatican City", "San Marino", "Liechtenstein"],
+        answer: 1,
+        explanation: "Vatican City is the smallest country in the world, with an area of just 0.49 square kilometers.",
+        difficulty: 'easy',
+        category: 'Geography'
+      },
+      {
+        id: 3,
+        question: "Who wrote 'Romeo and Juliet'?",
+        options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
+        answer: 1,
+        explanation: "William Shakespeare wrote 'Romeo and Juliet', one of his most famous plays, around 1597.",
+        difficulty: 'medium',
+        category: 'Arts'
+      },
+      {
+        id: 4,
+        question: "Which is the longest river in the world?",
+        options: ["Amazon", "Nile", "Yangtze", "Mississippi"],
+        answer: 1,
+        explanation: "The Nile is generally considered the longest river in the world, stretching approximately 6,650 kilometers.",
+        difficulty: 'medium',
+        category: 'Geography'
+      },
+      {
+        id: 5,
+        question: "Who painted the Mona Lisa?",
+        options: ["Vincent van Gogh", "Pablo Picasso", "Leonardo da Vinci", "Michelangelo"],
+        answer: 2,
+        explanation: "Leonardo da Vinci painted the Mona Lisa between 1503 and 1519. It is one of the world's most famous paintings.",
+        difficulty: 'easy',
+        category: 'Arts'
+      },
+      {
+        id: 6,
+        question: "Which planet is known as the 'Morning Star' or 'Evening Star'?",
+        options: ["Mars", "Jupiter", "Venus", "Mercury"],
+        answer: 2,
+        explanation: "Venus is often called the 'Morning Star' when it appears in the eastern sky before sunrise, and the 'Evening Star' when it appears in the western sky after sunset.",
+        difficulty: 'medium',
+        category: 'Geography'
+      },
+      {
+        id: 7,
+        question: "Who developed the theory of relativity?",
+        options: ["Isaac Newton", "Albert Einstein", "Galileo Galilei", "Stephen Hawking"],
+        answer: 1,
+        explanation: "Albert Einstein developed the theory of relativity, which includes both special relativity (1905) and general relativity (1915).",
+        difficulty: 'medium',
+        category: 'History'
+      },
+      {
+        id: 8,
+        question: "Which is the largest ocean on Earth?",
+        options: ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"],
+        answer: 3,
+        explanation: "The Pacific Ocean is the largest ocean on Earth, covering about 63 million square miles or 165 million square kilometers.",
+        difficulty: 'easy',
+        category: 'Geography'
+      },
+      {
+        id: 9,
+        question: "Who invented the telephone?",
+        options: ["Thomas Edison", "Alexander Graham Bell", "Nikola Tesla", "Guglielmo Marconi"],
+        answer: 1,
+        explanation: "Alexander Graham Bell is credited with inventing the telephone and was granted the first patent for it in 1876.",
+        difficulty: 'medium',
+        category: 'History'
+      },
+      {
+        id: 10,
+        question: "Which is the capital of Australia?",
+        options: ["Sydney", "Melbourne", "Canberra", "Perth"],
+        answer: 2,
+        explanation: "Canberra is the capital of Australia, chosen as a compromise between Sydney and Melbourne in 1913.",
+        difficulty: 'medium',
+        category: 'Geography'
+      },
+      {
+        id: 11,
+        question: "Who wrote 'To Kill a Mockingbird'?",
+        options: ["J.D. Salinger", "Harper Lee", "F. Scott Fitzgerald", "Ernest Hemingway"],
+        answer: 1,
+        explanation: "Harper Lee wrote 'To Kill a Mockingbird,' which was published in 1960 and won the Pulitzer Prize.",
+        difficulty: 'medium',
+        category: 'Arts'
+      },
+      {
+        id: 12,
+        question: "Which is the largest desert in the world?",
+        options: ["Sahara Desert", "Arabian Desert", "Gobi Desert", "Antarctic Polar Desert"],
+        answer: 3,
+        explanation: "The Antarctic Polar Desert is the largest desert in the world, covering about 14 million square kilometers.",
+        difficulty: 'hard',
+        category: 'Geography'
+      },
+      {
+        id: 13,
+        question: "Who was the first person to walk on the moon?",
+        options: ["Buzz Aldrin", "Yuri Gagarin", "Neil Armstrong", "John Glenn"],
+        answer: 2,
+        explanation: "Neil Armstrong was the first person to walk on the moon on July 20, 1969, during the Apollo 11 mission.",
+        difficulty: 'easy',
+        category: 'History'
+      },
+      {
+        id: 14,
+        question: "Which is the smallest continent by land area?",
+        options: ["Europe", "Australia", "Antarctica", "South America"],
+        answer: 1,
+        explanation: "Australia is the smallest continent by land area, covering about 8.6 million square kilometers.",
+        difficulty: 'medium',
+        category: 'Geography'
+      },
+      {
+        id: 15,
+        question: "Who painted 'The Starry Night'?",
+        options: ["Pablo Picasso", "Vincent van Gogh", "Claude Monet", "Salvador Dalí"],
+        answer: 1,
+        explanation: "Vincent van Gogh painted 'The Starry Night' in 1889 while he was a patient at the Saint-Paul-de-Mausole asylum.",
+        difficulty: 'medium',
+        category: 'Arts'
+      },
+      {
+        id: 16,
+        question: "Which is the tallest mountain in the world?",
+        options: ["K2", "Kangchenjunga", "Mount Everest", "Lhotse"],
+        answer: 2,
+        explanation: "Mount Everest is the tallest mountain in the world, with a peak elevation of 8,848.86 meters above sea level.",
+        difficulty: 'easy',
+        category: 'Geography'
+      },
+      {
+        id: 17,
+        question: "Who wrote 'The Communist Manifesto'?",
+        options: ["Vladimir Lenin", "Karl Marx and Friedrich Engels", "Joseph Stalin", "Leon Trotsky"],
+        answer: 1,
+        explanation: "Karl Marx and Friedrich Engels wrote 'The Communist Manifesto,' which was published in 1848.",
+        difficulty: 'hard',
+        category: 'Politics'
+      },
+      {
+        id: 18,
+        question: "Which is the most spoken language in the world?",
+        options: ["English", "Spanish", "Mandarin Chinese", "Hindi"],
+        answer: 2,
+        explanation: "Mandarin Chinese is the most spoken language in the world, with over 1.1 billion speakers.",
+        difficulty: 'medium',
+        category: 'Geography'
+      },
+      {
+        id: 19,
+        question: "Who discovered penicillin?",
+        options: ["Louis Pasteur", "Alexander Fleming", "Marie Curie", "Robert Koch"],
+        answer: 1,
+        explanation: "Alexander Fleming discovered penicillin in 1928, marking the beginning of the antibiotic age.",
+        difficulty: 'medium',
+        category: 'History'
+      },
+      {
+        id: 20,
+        question: "Which is the largest country by land area?",
+        options: ["Canada", "China", "United States", "Russia"],
+        answer: 3,
+        explanation: "Russia is the largest country by land area, covering about 17.1 million square kilometers.",
+        difficulty: 'easy',
+        category: 'Geography'
+      }
+    ]
+  },
+  {
+    id: 'english',
+    name: 'English',
+    color: '#8b5cf6',
+    icon: FaBook,
+    totalQuestions: 50,
+    difficultyDistribution: {
+      easy: 25,
+      medium: 15,
+      hard: 10
+    },
+    categories: ['Grammar', 'Literature', 'Vocabulary', 'Comprehension'],
+    questions: [
+      {
+        id: 1,
+        question: "Which of these is a noun?",
+        options: ["Run", "Quickly", "Beautiful", "Table"],
+        answer: 3,
+        explanation: "A noun is a word that represents a person, place, thing, or idea. 'Table' is a noun representing an object.",
+        difficulty: 'easy',
+        category: 'Grammar'
+      },
+      {
+        id: 2,
+        question: "What is the past tense of 'go'?",
+        options: ["Goes", "Went", "Gone", "Going"],
+        answer: 1,
+        explanation: "The past tense of 'go' is 'went'. 'Gone' is the past participle, 'goes' is the third-person singular present, and 'going' is the present participle.",
+        difficulty: 'easy',
+        category: 'Grammar'
+      },
+      {
+        id: 3,
+        question: "Which word is an adverb?",
+        options: ["Happy", "Happily", "Happiness", "Happen"],
+        answer: 1,
+        explanation: "An adverb modifies a verb, adjective, or another adverb. 'Happily' is an adverb that describes how an action is performed.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 4,
+        question: "What is the correct plural form of 'child'?",
+        options: ["Childs", "Children", "Childes", "Child's"],
+        answer: 1,
+        explanation: "The correct plural form of 'child' is 'children'. This is an irregular plural form in English.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 5,
+        question: "Which sentence is in the passive voice?",
+        options: ["The cat chased the mouse.", "The mouse was chased by the cat.", "The cat is chasing the mouse.", "The mouse chases the cat."],
+        answer: 1,
+        explanation: "In the passive voice, the subject of the sentence receives the action. In 'The mouse was chased by the cat,' the mouse (subject) is being chased.",
+        difficulty: 'hard',
+        category: 'Grammar'
+      },
+      {
+        id: 6,
+        question: "What is a synonym for 'big'?",
+        options: ["Small", "Tiny", "Large", "Little"],
+        answer: 2,
+        explanation: "A synonym is a word with the same or similar meaning. 'Large' is a synonym for 'big'.",
+        difficulty: 'easy',
+        category: 'Vocabulary'
+      },
+      {
+        id: 7,
+        question: "Which of these is a preposition?",
+        options: ["Run", "Under", "Beautiful", "Quickly"],
+        answer: 1,
+        explanation: "A preposition is a word that shows the relationship between a noun (or pronoun) and other words in a sentence. 'Under' is a preposition indicating location.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 8,
+        question: "What is the correct comparative form of 'good'?",
+        options: ["Gooder", "Better", "Goodest", "Best"],
+        answer: 1,
+        explanation: "The comparative form of 'good' is 'better'. This is an irregular comparative form in English.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 9,
+        question: "Which word is a conjunction?",
+        options: ["Jump", "And", "Quickly", "Happy"],
+        answer: 1,
+        explanation: "A conjunction is a word used to connect words, phrases, or clauses. 'And' is a coordinating conjunction.",
+        difficulty: 'easy',
+        category: 'Grammar'
+      },
+      {
+        id: 10,
+        question: "What is the correct spelling?",
+        options: ["Recieve", "Receive", "Receve", "Receieve"],
+        answer: 1,
+        explanation: "The correct spelling is 'receive'. A common mnemonic is 'i before e except after c'.",
+        difficulty: 'medium',
+        category: 'Vocabulary'
+      },
+      {
+        id: 11,
+        question: "Which sentence uses the correct punctuation?",
+        options: ["Its a beautiful day.", "It's a beautiful day.", "Its' a beautiful day.", "It a beautiful day."],
+        answer: 1,
+        explanation: "The correct sentence is 'It's a beautiful day.' 'It's' is a contraction of 'it is'.",
+        difficulty: 'easy',
+        category: 'Grammar'
+      },
+      {
+        id: 12,
+        question: "What is the antonym of 'hot'?",
+        options: ["Warm", "Cold", "Cool", "Tepid"],
+        answer: 1,
+        explanation: "An antonym is a word with the opposite meaning. 'Cold' is the antonym of 'hot'.",
+        difficulty: 'easy',
+        category: 'Vocabulary'
+      },
+      {
+        id: 13,
+        question: "Which of these is a pronoun?",
+        options: ["Run", "She", "Quickly", "Beautiful"],
+        answer: 1,
+        explanation: "A pronoun is a word that takes the place of a noun. 'She' is a pronoun that can replace a female person or animal.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 14,
+        question: "What is the correct superlative form of 'far'?",
+        options: ["Farer", "Farrest", "Farther", "Farthest"],
+        answer: 3,
+        explanation: "The superlative form of 'far' is 'farthest'. 'Farther' is the comparative form.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 15,
+        question: "Which word is an adjective?",
+        options: ["Run", "Quickly", "Beautiful", "And"],
+        answer: 2,
+        explanation: "An adjective is a word that describes or modifies a noun. 'Beautiful' is an adjective that describes the quality of something.",
+        difficulty: 'easy',
+        category: 'Grammar'
+      },
+      {
+        id: 16,
+        question: "What is the correct form of the verb in the sentence: 'She ___ to school every day.'?",
+        options: ["Go", "Goes", "Going", "Gone"],
+        answer: 1,
+        explanation: "The correct form is 'goes' because 'she' is a third-person singular subject, which requires the verb to end with '-es'.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 17,
+        question: "Which of these is a homophone for 'sea'?",
+        options: ["See", "Sea", "C", "Se"],
+        answer: 0,
+        explanation: "A homophone is a word that sounds the same as another word but has a different meaning. 'See' is a homophone for 'sea'.",
+        difficulty: 'hard',
+        category: 'Vocabulary'
+      },
+      {
+        id: 18,
+        question: "What is the correct plural form of 'potato'?",
+        options: ["Potatos", "Potatoes", "Potato's", "Potatoe"],
+        answer: 1,
+        explanation: "The correct plural form of 'potato' is 'potatoes'. Words ending in 'o' often form their plural by adding '-es'.",
+        difficulty: 'medium',
+        category: 'Grammar'
+      },
+      {
+        id: 19,
+        question: "Which sentence is in the future perfect tense?",
+        options: ["I will go to the store.", "I am going to the store.", "I will have gone to the store.", "I went to the store."],
+        answer: 2,
+        explanation: "The future perfect tense is formed with 'will have' + past participle. 'I will have gone to the store' is in the future perfect tense.",
+        difficulty: 'hard',
+        category: 'Grammar'
+      },
+      {
+        id: 20,
+        question: "What is the meaning of the prefix 'un-'?",
+        options: ["Not", "Before", "After", "Between"],
+        answer: 0,
+        explanation: "The prefix 'un-' usually means 'not' or 'the opposite of'. For example, 'unhappy' means not happy.",
+        difficulty: 'easy',
+        category: 'Vocabulary'
+      }
+    ]
+  },
+  {
+    id: 'computer',
+    name: 'Computer Science',
+    color: '#ec4899',
+    icon: FaLaptopCode,
+    totalQuestions: 50,
+    difficultyDistribution: {
+      easy: 15,
+      medium: 25,
+      hard: 10
+    },
+    categories: ['Programming', 'Algorithms', 'Networking', 'Databases'],
+    questions: [
+      {
+        id: 1,
+        question: "What does CPU stand for?",
+        options: ["Computer Processing Unit", "Central Processing Unit", "Central Program Unit", "Computer Program Unit"],
+        answer: 1,
+        explanation: "CPU stands for Central Processing Unit, which is the primary component of a computer that performs most of the processing.",
+        difficulty: 'easy',
+        category: 'Programming'
+      },
+      {
+        id: 2,
+        question: "Which language is primarily used for web development?",
+        options: ["Python", "JavaScript", "C++", "Java"],
+        answer: 1,
+        explanation: "JavaScript is primarily used for web development to create interactive effects within web browsers.",
+        difficulty: 'easy',
+        category: 'Programming'
+      },
+      {
+        id: 3,
+        question: "What is the smallest unit of data in a computer?",
+        options: ["Kilobyte", "Bit", "Byte", "Megabyte"],
+        answer: 1,
+        explanation: "A bit is the smallest unit of data in a computer, representing a binary value of 0 or 1.",
+        difficulty: 'easy',
+        category: 'Programming'
+      },
+      {
+        id: 4,
+        question: "What does HTML stand for?",
+        options: ["Hyperlinks and Text Markup Language", "Home Tool Markup Language", "Hyper Text Markup Language", "Hyperlinking Text Management Language"],
+        answer: 2,
+        explanation: "HTML stands for Hyper Text Markup Language, which is the standard markup language for creating web pages.",
+        difficulty: 'medium',
+        category: 'Programming'
+      },
+      {
+        id: 5,
+        question: "Which of these is a high-level programming language?",
+        options: ["Assembly", "Machine Code", "Python", "Binary"],
+        answer: 2,
+        explanation: "Python is a high-level programming language that is easier for humans to read and write compared to low-level languages like Assembly or Machine Code.",
+        difficulty: 'easy',
+        category: 'Programming'
+      },
+      {
+        id: 6,
+        question: "What is the purpose of an operating system?",
+        options: ["To create software", "To manage hardware resources", "To design websites", "To write code"],
+        answer: 1,
+        explanation: "The purpose of an operating system is to manage hardware resources and provide common services for computer programs.",
+        difficulty: 'medium',
+        category: 'Programming'
+      },
+      {
+        id: 7,
+        question: "What does RAM stand for?",
+        options: ["Read Access Memory", "Random Access Memory", "Run Access Memory", "Random Application Memory"],
+        answer: 1,
+        explanation: "RAM stands for Random Access Memory, which is a form of volatile memory that can be read and changed in any order.",
+        difficulty: 'easy',
+        category: 'Programming'
+      },
+      {
+        id: 8,
+        question: "Which data structure follows LIFO principle?",
+        options: ["Queue", "Array", "Stack", "Linked List"],
+        answer: 2,
+        explanation: "A stack follows the LIFO (Last In, First Out) principle, where the last element added is the first one to be removed.",
+        difficulty: 'medium',
+        category: 'Algorithms'
+      },
+      {
+        id: 9,
+        question: "What is the binary equivalent of decimal number 10?",
+        options: ["1010", "1100", "1001", "1111"],
+        answer: 0,
+        explanation: "The binary equivalent of decimal number 10 is 1010, which represents (1×2³) + (0×2²) + (1×2¹) + (0×2⁰).",
+        difficulty: 'medium',
+        category: 'Programming'
+      },
+      {
+        id: 10,
+        question: "Which protocol is used for secure web browsing?",
+        options: ["HTTP", "FTP", "HTTPS", "SMTP"],
+        answer: 2,
+        explanation: "HTTPS (Hypertext Transfer Protocol Secure) is used for secure web browsing, encrypting the communication between the browser and the server.",
+        difficulty: 'medium',
+        category: 'Networking'
+      },
+      {
+        id: 11,
+        question: "What is the time complexity of binary search?",
+        options: ["O(n)", "O(log n)", "O(n²)", "O(1)"],
+        answer: 1,
+        explanation: "The time complexity of binary search is O(log n), as it halves the search space with each comparison.",
+        difficulty: 'hard',
+        category: 'Algorithms'
+      },
+      {
+        id: 12,
+        question: "Which of these is not a programming paradigm?",
+        options: ["Object-Oriented", "Functional", "Procedural", "Structural"],
+        answer: 3,
+        explanation: "Object-Oriented, Functional, and Procedural are programming paradigms. Structural is not typically classified as a programming paradigm.",
+        difficulty: 'medium',
+        category: 'Programming'
+      },
+      {
+        id: 13,
+        question: "What does SQL stand for?",
+        options: ["Structured Query Language", "Simple Query Language", "Standard Query Language", "System Query Language"],
+        answer: 0,
+        explanation: "SQL stands for Structured Query Language, which is used for managing and querying relational databases.",
+        difficulty: 'easy',
+        category: 'Databases'
+      },
+      {
+        id: 14,
+        question: "Which of these is a NoSQL database?",
+        options: ["MySQL", "PostgreSQL", "MongoDB", "SQLite"],
+        answer: 2,
+        explanation: "MongoDB is a NoSQL database that stores data in flexible, JSON-like documents rather than in tables with fixed schemas.",
+        difficulty: 'medium',
+        category: 'Databases'
+      },
+      {
+        id: 15,
+        question: "What is the purpose of a compiler?",
+        options: ["To execute code", "To translate high-level code to machine code", "To debug code", "To optimize code"],
+        answer: 1,
+        explanation: "A compiler translates high-level programming language code into machine code that can be executed by a computer.",
+        difficulty: 'medium',
+        category: 'Programming'
+      },
+      {
+        id: 16,
+        question: "Which of these is a version control system?",
+        options: ["Git", "Docker", "Jenkins", "Kubernetes"],
+        answer: 0,
+        explanation: "Git is a distributed version control system for tracking changes in source code during software development.",
+        difficulty: 'easy',
+        category: 'Programming'
+      },
+      {
+        id: 17,
+        question: "What is the purpose of an API?",
+        options: ["To design user interfaces", "To allow different software applications to communicate", "To store data", "To write code"],
+        answer: 1,
+        explanation: "An API (Application Programming Interface) allows different software applications to communicate with each other.",
+        difficulty: 'medium',
+        category: 'Programming'
+      },
+      {
+        id: 18,
+        question: "Which of these is a type of cyber attack?",
+        options: ["Phishing", "Fishing", "Catching", "Hooking"],
+        answer: 0,
+        explanation: "Phishing is a type of cyber attack where attackers disguise themselves as trustworthy entities to steal sensitive information.",
+        difficulty: 'medium',
+        category: 'Networking'
+      },
+      {
+        id: 19,
+        question: "What is the purpose of an algorithm?",
+        options: ["To design hardware", "To create user interfaces", "To solve a problem step by step", "To store data"],
+        answer: 2,
+        explanation: "An algorithm is a step-by-step procedure for solving a problem or accomplishing a task.",
+        difficulty: 'easy',
+        category: 'Algorithms'
+      },
+      {
+        id: 20,
+        question: "Which of these is a cloud computing service model?",
+        options: ["IaaS", "HTML", "CSS", "JavaScript"],
+        answer: 0,
+        explanation: "IaaS (Infrastructure as a Service) is a cloud computing service model that provides virtualized computing resources over the internet.",
+        difficulty: 'medium',
+        category: 'Networking'
+      }
+    ]
+  }
+];
+const SUBJECTS = [
+  { id: 1, name: 'Mathematics', color: '#3b82f6', icon: FaChartLine },
+  { id: 2, name: 'Computer Science', color: '#10b981', icon: FaLaptopCode },
+  { id: 3, name: 'Physics', color: '#f59e0b', icon: FaAtom },
+  { id: 4, name: 'Chemistry', color: '#ef4444', icon: FaFlask },
+  { id: 5, name: 'Biology', color: '#8b5cf6', icon: FaDna },
+  { id: 6, name: 'English', color: '#ec4899', icon: FaBook },
+  { id: 7, name: 'History', color: '#6366f1', icon: FaLandmark },
+  { id: 8, name: 'Geography', color: '#14b8a6', icon: FaGlobeAmericas }
+];
+const ACHIEVEMENTS = [
+  { id: 1, title: 'Quick Learner', description: 'Complete 5 quizzes in a week', icon: FaTrophy, unlocked: true },
+  { id: 2, title: 'Study Streak', description: 'Study for 7 consecutive days', icon: FaFire, unlocked: true },
+  { id: 3, title: 'Perfect Score', description: 'Score 100% on any quiz', icon: FaMedal, unlocked: false },
+  { id: 4, title: 'Knowledge Master', description: 'Complete all subjects', icon: FaCertificate, unlocked: false }
+];
+const DOCUMENT_TYPES = [
+  { id: 'pdf', name: 'PDF Documents', icon: FaFilePdf, description: 'Analyze PDF documents for topics' },
+  { id: 'word', name: 'Word Documents', icon: FaFileWord, description: 'Extract content from Word files' },
+  { id: 'ppt', name: 'Presentations', icon: FaFilePowerpoint, description: 'Analyze PowerPoint presentations' },
+  { id: 'excel', name: 'Spreadsheets', icon: FaFileExcel, description: 'Extract data from Excel files' },
+  { id: 'image', name: 'Images', icon: FaImage, description: 'Analyze text in images' }
+];
+const SHAPES_FORMULAS = [
+  {
+    name: 'Square',
+    icon: FaSquare,
+    formulas: [
+      { name: 'Area', formula: 'a²' },
+      { name: 'Perimeter', formula: '4a' }
+    ],
+    diagram: 'square-diagram.svg'
+  },
+  {
+    name: 'Rectangle',
+    icon: FaSquare,
+    formulas: [
+      { name: 'Area', formula: 'l × w' },
+      { name: 'Perimeter', formula: '2(l + w)' }
+    ],
+    diagram: 'rectangle-diagram.svg'
+  },
+  {
+    name: 'Circle',
+    icon: FaCircle,
+    formulas: [
+      { name: 'Area', formula: 'πr²' },
+      { name: 'Circumference', formula: '2πr' }
+    ],
+    diagram: 'circle-diagram.svg'
+  },
+  {
+    name: 'Triangle',
+    icon: FaShapes,
+    formulas: [
+      { name: 'Area', formula: '½bh' },
+      { name: 'Perimeter', formula: 'a + b + c' }
+    ],
+    diagram: 'triangle-diagram.svg'
+  },
+  {
+    name: 'Cube',
+    icon: FaCube,
+    formulas: [
+      { name: 'Volume', formula: 'a³' },
+      { name: 'Surface Area', formula: '6a²' }
+    ],
+    diagram: 'cube-diagram.svg'
+  },
+  {
+    name: 'Sphere',
+    icon: FaCircle,
+    formulas: [
+      { name: 'Volume', formula: '⁴⁄₃πr³' },
+      { name: 'Surface Area', formula: '4πr²' }
+    ],
+    diagram: 'sphere-diagram.svg'
+  },
+  {
+    name: 'Cylinder',
+    icon: FaCube,
+    formulas: [
+      { name: 'Volume', formula: 'πr²h' },
+      { name: 'Surface Area', formula: '2πr² + 2πrh' }
+    ],
+    diagram: 'cylinder-diagram.svg'
+  },
+  {
+    name: 'Cone',
+    icon: FaShapes,
+    formulas: [
+      { name: 'Volume', formula: '¹⁄₃πr²h' },
+      { name: 'Surface Area', formula: 'πr² + πrl' }
+    ],
+    diagram: 'cone-diagram.svg'
+  },
+  {
+    name: 'Pyramid',
+    icon: FaShapes,
+    formulas: [
+      { name: 'Volume', formula: '¹⁄₃Bh' },
+      { name: 'Surface Area', formula: 'B + ¹⁄₂Pl' }
+    ],
+    diagram: 'pyramid-diagram.svg'
+  }
+];
+const MATH_FORMULAS = [
+  {
+    name: 'Algebra',
+    icon: FaChartLine,
+    formulas: [
+      { name: 'Quadratic Formula', formula: 'x = [-b ± √(b² - 4ac)] / 2a' },
+      { name: 'Distance Formula', formula: 'd = √[(x₂ - x₁)² + (y₂ - y₁)²]' },
+      { name: 'Slope Formula', formula: 'm = (y₂ - y₁) / (x₂ - x₁)' },
+      { name: 'Midpoint Formula', formula: 'M = [(x₁ + x₂)/2, (y₁ + y₂)/2]' },
+      { name: 'Exponent Rules', formula: 'a^m × a^n = a^(m+n)' }
+    ],
+    diagram: 'algebra-diagram.svg'
+  },
+  {
+    name: 'Geometry',
+    icon: FaShapes,
+    formulas: [
+      { name: 'Pythagorean Theorem', formula: 'a² + b² = c²' },
+      { name: 'Area of Triangle', formula: 'A = ½bh' },
+      { name: 'Area of Circle', formula: 'A = πr²' },
+      { name: 'Circumference of Circle', formula: 'C = 2πr' },
+      { name: 'Volume of Sphere', formula: 'V = ⁴⁄₃πr³' }
+    ],
+    diagram: 'geometry-diagram.svg'
+  },
+  {
+    name: 'Trigonometry',
+    icon: FaRuler,
+    formulas: [
+      { name: 'Sine Rule', formula: 'a/sin A = b/sin B = c/sin C' },
+      { name: 'Cosine Rule', formula: 'c² = a² + b² - 2ab cos C' },
+      { name: 'Area of Triangle (Trig)', formula: 'A = ½ab sin C' },
+      { name: 'Pythagorean Identity', formula: 'sin²θ + cos²θ = 1' },
+      { name: 'Double Angle Formula', formula: 'sin 2θ = 2 sin θ cos θ' }
+    ],
+    diagram: 'trigonometry-diagram.svg'
+  },
+  {
+    name: 'Calculus',
+    icon: FaChartLine,
+    formulas: [
+      { name: 'Derivative of x^n', formula: 'd/dx(x^n) = nx^(n-1)' },
+      { name: 'Power Rule', formula: 'd/dx(fg) = f\'g + fg\'' },
+      { name: 'Chain Rule', formula: 'd/dx(f(g(x))) = f\'(g(x))g\'(x)' },
+      { name: 'Integral of x^n', formula: '∫x^n dx = x^(n+1)/(n+1) + C' },
+      { name: 'Fundamental Theorem', formula: '∫_a^b f(x) dx = F(b) - F(a)' }
+    ],
+    diagram: 'calculus-diagram.svg'
+  },
+  {
+    name: 'Statistics',
+    icon: FaChartPie,
+    formulas: [
+      { name: 'Mean', formula: 'μ = Σx/n' },
+      { name: 'Median', formula: 'Middle value when ordered' },
+      { name: 'Mode', formula: 'Most frequent value' },
+      { name: 'Variance', formula: 'σ² = Σ(x-μ)²/n' },
+      { name: 'Standard Deviation', formula: 'σ = √[Σ(x-μ)²/n]' }
+    ],
+    diagram: 'statistics-diagram.svg'
+  },
+  {
+    name: 'Probability',
+    icon: FaChartLine,
+    formulas: [
+      { name: 'Simple Probability', formula: 'P(A) = n(A)/n(S)' },
+      { name: 'Addition Rule', formula: 'P(A∪B) = P(A) + P(B) - P(A∩B)' },
+      { name: 'Multiplication Rule', formula: 'P(A∩B) = P(A) × P(B|A)' },
+      { name: 'Conditional Probability', formula: 'P(A|B) = P(A∩B)/P(B)' },
+      { name: 'Bayes\' Theorem', formula: 'P(A|B) = P(B|A)P(A)/P(B)' }
+    ],
+    diagram: 'probability-diagram.svg'
+  }
+];
+const STUDY_RESOURCES = [
+  { name: 'Khan Academy', url: 'https://www.khanacademy.org', description: 'Free online courses, lessons, and practice', icon: FaGraduationCap },
+  { name: 'Coursera', url: 'https://www.coursera.org', description: 'Online courses and degrees from top universities', icon: FaGraduationCap },
+  { name: 'edX', url: 'https://www.edx.org', description: 'Free online courses from the best universities', icon: FaGraduationCap },
+  { name: 'Codecademy', url: 'https://www.codecademy.com', description: 'Interactive coding lessons and projects', icon: FaCode },
+  { name: 'Duolingo', url: 'https://www.duolingo.com', description: 'Free language learning platform', icon: FaLanguage },
+  { name: 'TED-Ed', url: 'https://ed.ted.com', description: 'Video lessons worth sharing', icon: FaPlayCircle },
+  { name: 'MIT OpenCourseWare', url: 'https://ocw.mit.edu', description: 'Free MIT course materials', icon: FaBookReader },
+  { name: 'Google Scholar', url: 'https://scholar.google.com', description: 'Search for scholarly literature', icon: FaSearch },
+  { name: 'Wolfram Alpha', url: 'https://www.wolframalpha.com', description: 'Computational knowledge engine', icon: FaCalculator },
+  { name: 'Project Gutenberg', url: 'https://www.gutenberg.org', description: 'Free e-books', icon: FaBook }
+];
+const PROGRAMMING_LANGUAGES = [
+  { value: 'javascript', label: 'JavaScript', mode: javascript, extension: 'js', compiler: 'javascript' },
+  { value: 'python', label: 'Python', mode: python, extension: 'py', compiler: 'python' },
+  { value: 'html', label: 'HTML', mode: html, extension: 'html', compiler: 'html' },
+  { value: 'css', label: 'CSS', mode: css, extension: 'css', compiler: 'css' },
+  { value: 'java', label: 'Java', mode: java, extension: 'java', compiler: 'java' },
+  { value: 'c', label: 'C', mode: cpp, extension: 'c', compiler: 'c' },
+  { value: 'cpp', label: 'C++', mode: cpp, extension: 'cpp', compiler: 'cpp' }
+];
+const AI_MODELS = [
+  { id: 'gpt-4', name: 'GPT-4', description: 'Advanced language model with reasoning capabilities', provider: 'OpenAI' },
+  { id: 'gpt-5', name: 'GPT-5', description: 'Latest model with enhanced performance', provider: 'OpenAI' },
+  { id: 'gemini', name: 'Gemini', description: 'Google\'s multimodal AI model', provider: 'Google' },
+  { id: 'claude', name: 'Claude', description: 'AI assistant focused on helpful, honest, and harmless responses', provider: 'Anthropic' },
+  { id: 'llama', name: 'LLaMA', description: 'Open-source large language model', provider: 'Meta' },
+  { id: 'mistral', name: 'Mistral', description: 'Efficient open-source model', provider: 'Mistral AI' }
+];
+const COLLABORATION_TOOLS = [
+  { id: 'video', name: 'Video Chat', icon: FaVideo, description: 'Real-time video conferencing with screen sharing' },
+  { id: 'whiteboard', name: 'Shared Whiteboard', icon: FaChalkboardTeacher, description: 'Collaborative canvas for diagrams and notes' },
+  { id: 'files', name: 'File Sharing', icon: FaFileUpload, description: 'Share documents and resources with your group' },
+  { id: 'code', name: 'Code Editor', icon: FaCode, description: 'Collaborative coding environment' },
+  { id: 'chat', name: 'Group Chat', icon: FaComments, description: 'Real-time text messaging' },
+  { id: 'screen', name: 'Screen Sharing', icon: FaDesktop, description: 'Share your screen with participants' },
+  { id: 'polls', name: 'Polls & Surveys', icon: FaChartPie, description: 'Create polls to gather opinions' },
+  { id: 'breakout', name: 'Breakout Rooms', icon: FaUserFriends, description: 'Divide into smaller discussion groups' }
+];
+// AI Service Integration
+const AIService = {
+  apiKey: 'sk-3b82f6f59e0bef444410b9818b5cf6', // Replace with your actual API key
+  
+  setApiKey: function(key) {
+    this.apiKey = key;
+    localStorage.setItem('ai_api_key', key);
+  },
+  
+  getApiKey: function() {
+    if (!this.apiKey) {
+      this.apiKey = localStorage.getItem('ai_api_key') || 'sk-3b82f6f59e0bef444410b9818b5cf6';
+    }
+    return this.apiKey;
+  },
+  
+  // Simulate AI content generation
+  generateContent: async function(topic, contentType, aiModel = 'gpt-4') {
+    if (!this.apiKey) {
+      throw new Error('API key is required. Please set it in settings.');
+    }
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Mock responses based on content type and AI model
+    switch(contentType) {
+      case 'quiz':
+        return this.generateQuiz(topic, aiModel);
+      case 'study':
+        return this.generateStudyMaterial(topic, aiModel);
+      case 'questions':
+        return this.generateQuestions(topic, aiModel);
+      case 'notes':
+        return this.generateNotes(topic, aiModel);
+      default:
+        return 'Content type not supported';
+    }
+  },
+  
+  generateQuiz: function(topic, aiModel) {
+    let modelPrefix = '';
+    if (aiModel === 'gpt-5') {
+      modelPrefix = 'Using GPT-5 advanced reasoning:\n\n';
+    } else if (aiModel === 'gemini') {
+      modelPrefix = 'Using Gemini multimodal understanding:\n\n';
+    } else if (aiModel === 'claude') {
+      modelPrefix = 'Using Claude helpful assistant:\n\n';
+    } else if (aiModel === 'llama') {
+      modelPrefix = 'Using LLaMA open-source model:\n\n';
+    } else if (aiModel === 'mistral') {
+      modelPrefix = 'Using Mistral efficient model:\n\n';
+    } else {
+      modelPrefix = 'Using GPT-4:\n\n';
+    }
+    
+    return `${modelPrefix}# AI-Generated Quiz: ${topic}
+## Question 1
+What is the primary concept of ${topic}?
+A) Fundamental principle A
+B) Fundamental principle B
+C) Fundamental principle C
+D) Fundamental principle D
+## Question 2
+How is ${topic} applied in practice?
+A) Application A
+B) Application B
+C) Application C
+D) Application D
+## Question 3
+What are the challenges associated with ${topic}?
+A) Challenge A
+B) Challenge B
+C) Challenge C
+D) Challenge D
+## Answer Key
+1. B
+2. C
+3. A`;
+  },
+  
+  generateStudyMaterial: function(topic, aiModel) {
+    let modelPrefix = '';
+    if (aiModel === 'gpt-5') {
+      modelPrefix = 'Using GPT-5 advanced reasoning:\n\n';
+    } else if (aiModel === 'gemini') {
+      modelPrefix = 'Using Gemini multimodal understanding:\n\n';
+    } else if (aiModel === 'claude') {
+      modelPrefix = 'Using Claude helpful assistant:\n\n';
+    } else if (aiModel === 'llama') {
+      modelPrefix = 'Using LLaMA open-source model:\n\n';
+    } else if (aiModel === 'mistral') {
+      modelPrefix = 'Using Mistral efficient model:\n\n';
+    } else {
+      modelPrefix = 'Using GPT-4:\n\n';
+    }
+    
+    return `${modelPrefix}# AI-Generated Study Material: ${topic}
+## Introduction
+${topic} is a fundamental concept in its field. This AI-generated material provides a comprehensive overview of key principles and applications.
+## Key Concepts
+### Concept 1
+- **Definition**: [Detailed definition of the concept]
+- **Importance**: [Why this concept matters]
+- **Examples**: [Practical examples]
+### Concept 2
+- **Definition**: [Detailed definition of the concept]
+- **Importance**: [Why this concept matters]
+- **Examples**: [Practical examples]
+## Applications
+${topic} has numerous applications in various fields including:
+- Application 1
+- Application 2
+- Application 3
+## Summary
+In summary, ${topic} is a critical concept with wide-ranging applications. Understanding its principles is essential for mastery in this field.`;
+  },
+  
+  generateQuestions: function(topic, aiModel) {
+    let modelPrefix = '';
+    if (aiModel === 'gpt-5') {
+      modelPrefix = 'Using GPT-5 advanced reasoning:\n\n';
+    } else if (aiModel === 'gemini') {
+      modelPrefix = 'Using Gemini multimodal understanding:\n\n';
+    } else if (aiModel === 'claude') {
+      modelPrefix = 'Using Claude helpful assistant:\n\n';
+    } else if (aiModel === 'llama') {
+      modelPrefix = 'Using LLaMA open-source model:\n\n';
+    } else if (aiModel === 'mistral') {
+      modelPrefix = 'Using Mistral efficient model:\n\n';
+    } else {
+      modelPrefix = 'Using GPT-4:\n\n';
+    }
+    
+    return `${modelPrefix}# AI-Generated Important Questions: ${topic}
+1. Explain the fundamental principles of ${topic} and how they relate to broader concepts in the field.
+2. What are the key challenges associated with implementing ${topic} in practical scenarios?
+3. Compare and contrast different approaches to ${topic}. What are the advantages and disadvantages of each?
+4. How has ${topic} evolved over time? What historical factors have influenced its development?
+5. What are the current research trends and future directions in the study of ${topic}?`;
+  },
+  
+  generateNotes: function(topic, aiModel) {
+    let modelPrefix = '';
+    if (aiModel === 'gpt-5') {
+      modelPrefix = 'Using GPT-5 advanced reasoning:\n\n';
+    } else if (aiModel === 'gemini') {
+      modelPrefix = 'Using Gemini multimodal understanding:\n\n';
+    } else if (aiModel === 'claude') {
+      modelPrefix = 'Using Claude helpful assistant:\n\n';
+    } else if (aiModel === 'llama') {
+      modelPrefix = 'Using LLaMA open-source model:\n\n';
+    } else if (aiModel === 'mistral') {
+      modelPrefix = 'Using Mistral efficient model:\n\n';
+    } else {
+      modelPrefix = 'Using GPT-4:\n\n';
+    }
+    
+    return `${modelPrefix}# AI-Generated Notes: ${topic}
+## Key Points
+- ${topic} involves several interconnected concepts
+- Understanding the fundamentals is crucial before advancing to complex applications
+- Practice regularly to reinforce learning
+## Important Formulas
+- Formula 1: [Insert relevant formula]
+- Formula 2: [Insert relevant formula]
+- Formula 3: [Insert relevant formula]
+## Study Tips
+- Break down complex concepts into smaller, manageable parts
+- Use visual aids to enhance understanding
+- Connect new information to what you already know`;
+  },
+  
+  // Simulate document analysis
+  analyzeDocument: async function(file) {
+    if (!this.apiKey) {
+      throw new Error('API key is required. Please set it in settings.');
+    }
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Extract topics based on filename
+    const fileName = file.name.toLowerCase();
+    const topics = [];
+    
+    // AI-based topic detection
+    if (fileName.includes('math') || fileName.includes('calculus') || fileName.includes('algebra')) {
+      topics.push('Algebra', 'Calculus', 'Geometry', 'Trigonometry', 'Mathematical Analysis');
+    }
+    if (fileName.includes('science') || fileName.includes('physics') || fileName.includes('chemistry')) {
+      topics.push('Physics', 'Chemistry', 'Biology', 'Earth Science', 'Scientific Method');
+    }
+    if (fileName.includes('history') || fileName.includes('war') || fileName.includes('civilization')) {
+      topics.push('Ancient History', 'Modern History', 'World Wars', 'Civilizations', 'Historical Analysis');
+    }
+    if (fileName.includes('english') || fileName.includes('literature') || fileName.includes('poetry')) {
+      topics.push('Poetry', 'Prose', 'Drama', 'Literary Analysis', 'English Grammar');
+    }
+    if (fileName.includes('computer') || fileName.includes('programming') || fileName.includes('code')) {
+      topics.push('Programming', 'Algorithms', 'Data Structures', 'Software Engineering', 'Computer Architecture');
+    }
+    
+    // If no specific topics detected, use general topics
+    if (topics.length === 0) {
+      topics.push('General Studies', 'Research Methods', 'Critical Thinking', 'Academic Writing');
+    }
+    
+    return topics;
+  },
+  
+  // Simulate code execution
+  executeCode: async function(code, language) {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    try {
+      // Mock execution based on language
+      if (language === 'javascript') {
+        try {
+          // Note: In a real implementation, use a safe evaluation method
+          // This is a simplified version for demonstration
+          const result = eval(code);
+          return String(result);
+        } catch (e) {
+          return `Error: ${e.message}`;
+        }
+      } else if (language === 'python') {
+        // Simulate Python execution
+        if (code.includes('print(')) {
+          const match = code.match(/print\(['"](.*)['"]\)/);
+          if (match) {
+            return match[1];
+          }
+        }
+        return 'Python output would appear here\nThis is a simulation of Python code execution.';
+      } else if (language === 'html') {
+        return 'HTML code would render in a browser\nThis is a simulation of HTML rendering.';
+      } else if (language === 'css') {
+        return 'CSS styles would apply to HTML elements\nThis is a simulation of CSS styling.';
+      } else if (language === 'java') {
+        return 'Java code would compile and run\nThis is a simulation of Java code execution.';
+      } else if (language === 'c' || language === 'cpp') {
+        return 'C/C++ code would compile and run\nThis is a simulation of C/C++ code execution.';
+      } else {
+        return 'Code execution for this language is not supported in this demo.';
+      }
+    } catch (error) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+// Toast Notification Component
+const ToastNotification = ({ message, type = 'info', onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      setTimeout(onClose, 300);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+  
+  const getIcon = () => {
+    switch (type) {
+      case 'success': return <FaCheck className="toast-icon" />;
+      case 'error': return <FaTimesCircle className="toast-icon" />;
+      case 'warning': return <FaExclamationTriangle className="toast-icon" />;
+      default: return <FaInfoCircle className="toast-icon" />;
+    }
+  };
+  
+  const getTypeClass = () => {
+    switch (type) {
+      case 'success': return 'toast-success';
+      case 'error': return 'toast-error';
+      case 'warning': return 'toast-warning';
+      default: return 'toast-info';
+    }
+  };
+  
+  return (
+    <div className={`toast-notification ${getTypeClass()} ${isVisible ? 'toast-show' : 'toast-hide'}`}>
+      {getIcon()}
+      <span className="toast-message">{message}</span>
+      <button className="toast-close" onClick={() => {
+        setIsVisible(false);
+        setTimeout(onClose, 300);
+      }}>
+        <FaTimes />
+      </button>
+    </div>
+  );
+};
+// Toast Container Component
+const ToastContainer = () => {
+  const [toasts, setToasts] = useState([]);
+  
+  const addToast = (message, type = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+  
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+  
+  // Expose addToast globally
+  useEffect(() => {
+    window.showToast = addToast;
+    return () => {
+      delete window.showToast;
+    };
+  }, []);
+  
+  return (
+    <div className="toast-container">
+      {toasts.map(toast => (
+        <ToastNotification
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => removeToast(toast.id)}
+        />
+      ))}
+    </div>
+  );
+};
+// Custom hook for toast notifications
+const useToast = () => {
+  return (message, type = 'info') => {
+    if (window.showToast) {
+      window.showToast(message, type);
+    }
+  };
+};
+// Custom hook for voice recognition
+const useVoiceRecognition = (callback) => {
+  const recognitionRef = useRef(null);
+  const [isListening, setIsListening] = useState(false);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = 'en-US';
+        
+        recognitionRef.current.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          callback(transcript);
+        };
+        
+        recognitionRef.current.onerror = (event) => {
+          console.error('Speech recognition error', event.error);
+          setIsListening(false);
+          if (window.showToast) {
+            window.showToast('Voice recognition error. Please try again.', 'error');
+          }
+        };
+        
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      }
+    }
+  }, [callback]);
+  
+  const startListening = () => {
+    if (recognitionRef.current) {
+      setIsListening(true);
+      recognitionRef.current.start();
+    } else {
+      if (window.showToast) {
+        window.showToast('Speech recognition is not supported in your browser.', 'error');
+      }
+    }
+  };
+  
+  return { isListening, startListening };
+};
+// Enhanced File Preview Modal Component
+const FilePreviewModal = ({ file, onClose, handleDownloadFile, handleDeleteItem, handleUpdateFile }) => {
+  if (!file) return null;
+  
+  const [previewMode, setPreviewMode] = useState('view'); // view, edit, annotate
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [rotation, setRotation] = useState(0);
+  const [fileContent, setFileContent] = useState('');
+  
+  // Load file content when component mounts
+  useEffect(() => {
+    if (file.type.includes('text') && file.content) {
+      setFileContent(file.content);
+    } else if (file.file) {
+      // For uploaded files, read content if it's text
+      if (file.type.includes('text')) {
+        const reader = new FileReader();
+        reader.onload = (e) => setFileContent(e.target.result);
+        reader.readAsText(file.file);
+      }
+    }
+  }, [file]);
+  
+  // Handle zoom controls
+  const zoomIn = () => setZoomLevel(prev => Math.min(prev + 10, 200));
+  const zoomOut = () => setZoomLevel(prev => Math.max(prev - 10, 50));
+  const resetZoom = () => setZoomLevel(100);
+  
+  // Handle rotation controls
+  const rotateLeft = () => setRotation(prev => (prev - 90) % 360);
+  const rotateRight = () => setRotation(prev => (prev + 90) % 360);
+  const resetRotation = () => setRotation(0);
+  
+  // Render file content based on type
+  const renderFileContent = () => {
+    if (file.type.startsWith('image/')) {
+      return (
+        <div className="image-preview-container">
+          <img 
+            src={file.url} 
+            alt={file.name} 
+            className="preview-image"
+            style={{ 
+              transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+              maxWidth: '100%',
+              maxHeight: '70vh'
+            }}
+          />
+        </div>
+      );
+    } else if (file.type === 'application/pdf') {
+      return (
+        <div className="pdf-preview-container">
+          <iframe
+            src={file.url}
+            className="preview-pdf"
+            title={file.name}
+            style={{ 
+              transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+              width: '100%',
+              height: '70vh'
+            }}
+          />
+        </div>
+      );
+    } else if (file.type.includes('text') || file.type === 'application/json') {
+      return (
+        <div className="text-preview-container">
+          {previewMode === 'view' ? (
+            <pre className="preview-text" style={{ fontSize: `${zoomLevel}%` }}>
+              {fileContent}
+            </pre>
+          ) : (
+            <textarea
+              value={fileContent}
+              onChange={(e) => setFileContent(e.target.value)}
+              className="text-editor"
+              style={{ fontSize: `${zoomLevel}%` }}
+            />
+          )}
+        </div>
+      );
+    } else if (file.type.includes('word') || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      return (
+        <div className="document-preview-container">
+          <div className="document-placeholder">
+            <FaFileWord className="document-icon" />
+            <h3>Word Document</h3>
+            <p>Preview not available for this file type</p>
+            <button onClick={handleDownloadFile} className="download-btn">
+              <FaDownload /> Download File
+            </button>
+          </div>
+        </div>
+      );
+    } else if (file.type.includes('excel') || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      return (
+        <div className="document-preview-container">
+          <div className="document-placeholder">
+            <FaFileExcel className="document-icon" />
+            <h3>Excel Spreadsheet</h3>
+            <p>Preview not available for this file type</p>
+            <button onClick={handleDownloadFile} className="download-btn">
+              <FaDownload /> Download File
+            </button>
+          </div>
+        </div>
+      );
+    } else if (file.type.includes('powerpoint') || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+      return (
+        <div className="document-preview-container">
+          <div className="document-placeholder">
+            <FaFilePowerpoint className="document-icon" />
+            <h3>PowerPoint Presentation</h3>
+            <p>Preview not available for this file type</p>
+            <button onClick={handleDownloadFile} className="download-btn">
+              <FaDownload /> Download File
+            </button>
+          </div>
+        </div>
+      );
+    } else if (file.type.includes('audio')) {
+      return (
+        <div className="audio-preview-container">
+          <div className="audio-player">
+            <FaFileAudio className="audio-icon" />
+            <h3>Audio File</h3>
+            <audio controls src={file.url} className="audio-controls"></audio>
+          </div>
+        </div>
+      );
+    } else if (file.type.includes('video')) {
+      return (
+        <div className="video-preview-container">
+          <video 
+            controls 
+            src={file.url} 
+            className="video-player"
+            style={{ 
+              transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
+              maxWidth: '100%',
+              maxHeight: '70vh'
+            }}
+          />
+        </div>
+      );
+    } else if (file.type.includes('code')) {
+      return (
+        <div className="code-preview-container">
+          {previewMode === 'view' ? (
+            <pre className="preview-code" style={{ fontSize: `${zoomLevel}%` }}>
+              {fileContent}
+            </pre>
+          ) : (
+            <textarea
+              value={fileContent}
+              onChange={(e) => setFileContent(e.target.value)}
+              className="code-editor"
+              style={{ fontSize: `${zoomLevel}%` }}
+            />
+          )}
+        </div>
+      );
+    } else {
+      return (
+        <div className="document-preview-container">
+          <div className="document-placeholder">
+            <FaFileAlt className="document-icon" />
+            <h3>File Preview</h3>
+            <p>Preview not available for this file type</p>
+            <button onClick={handleDownloadFile} className="download-btn">
+              <FaDownload /> Download File
+            </button>
+          </div>
+        </div>
+      );
+    }
+  };
+  
+  return (
+    <div className="file-preview-modal-overlay">
+      <div className="file-preview-modal">
+        <div className="modal-header">
+          <div className="file-info">
+            <div className="file-icon">
+              {file.type.includes('image') ? <FaFileImage /> :
+               file.type.includes('pdf') ? <FaFilePdf /> :
+               file.type.includes('word') ? <FaFileWord /> :
+               file.type.includes('excel') ? <FaFileExcel /> :
+               file.type.includes('powerpoint') ? <FaFilePowerpoint /> :
+               file.type.includes('audio') ? <FaFileAudio /> :
+               file.type.includes('video') ? <FaFileVideo /> :
+               file.type.includes('code') ? <FaFileCode /> :
+               <FaFileAlt />}
+            </div>
+            <div>
+              <h3 className="file-name">{file.name}</h3>
+              <p className="file-meta">
+                {(file.size / 1024).toFixed(2)} KB • {file.uploadDate.toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+          
+          <div className="modal-controls">
+            <div className="zoom-controls">
+              <button onClick={zoomOut} className="control-btn" title="Zoom Out">
+                <FaSearchMinus />
+              </button>
+              <span className="zoom-level">{zoomLevel}%</span>
+              <button onClick={zoomIn} className="control-btn" title="Zoom In">
+                <FaSearchPlus />
+              </button>
+              <button onClick={resetZoom} className="control-btn" title="Reset Zoom">
+                <FaCompress />
+              </button>
+            </div>
+            
+            <div className="rotation-controls">
+              <button onClick={rotateLeft} className="control-btn" title="Rotate Left">
+                <FaUndo />
+              </button>
+              <button onClick={rotateRight} className="control-btn" title="Rotate Right">
+                <FaRedo />
+              </button>
+              <button onClick={resetRotation} className="control-btn" title="Reset Rotation">
+                <FaSync />
+              </button>
+            </div>
+            
+            {(file.type.includes('text') || file.type.includes('code')) && (
+              <div className="mode-controls">
+                <button 
+                  onClick={() => setPreviewMode('view')} 
+                  className={`control-btn ${previewMode === 'view' ? 'active' : ''}`}
+                  title="View Mode"
+                >
+                  <FaEye />
+                </button>
+                <button 
+                  onClick={() => setPreviewMode('edit')} 
+                  className={`control-btn ${previewMode === 'edit' ? 'active' : ''}`}
+                  title="Edit Mode"
+                >
+                  <FaEdit />
+                </button>
+              </div>
+            )}
+            
+            <button onClick={onClose} className="close-btn" title="Close">
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+        
+        <div className="modal-body">
+          {renderFileContent()}
+        </div>
+        
+        <div className="modal-footer">
+          <div className="file-actions">
+            <button onClick={() => window.print()} className="action-btn" title="Print">
+              <FaPrint /> Print
+            </button>
+            <button onClick={handleDownloadFile} className="action-btn" title="Download">
+              <FaDownload /> Download
+            </button>
+            {(file.type.includes('text') || file.type.includes('code')) && previewMode === 'edit' && (
+              <button 
+                onClick={() => {
+                  // Save edited content
+                  const updatedFile = {
+                    ...file,
+                    content: fileContent,
+                    lastModified: new Date()
+                  };
+                  // Update file in state
+                  handleUpdateFile(updatedFile);
+                  if (window.showToast) {
+                    window.showToast('File saved successfully!', 'success');
+                  }
+                }}
+                className="action-btn"
+                title="Save Changes"
+              >
+                <FaSave /> Save
+              </button>
+            )}
+            <button 
+              onClick={() => handleDeleteItem('file', file.id)} 
+              className="action-btn danger"
+              title="Delete"
+            >
+              <FaTrash /> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Document Analysis Component
+const DocumentAnalysis = ({
+  analyzedTopics,
+  handleTopicClick,
+  handleFileUpload,
+  documentTypes,
+  isAnalyzing
+}) => {
+  return (
+    <div className="document-analysis">
+      <div className="analysis-header">
+        <h3>Document Analysis</h3>
+        <p>Upload documents to extract topics and generate learning materials</p>
+      </div>
+      
+      <div className="document-types">
+        <h4>Supported Document Types</h4>
+        <div className="types-grid">
+          {documentTypes.map(type => (
+            <div key={type.id} className="document-type">
+              <div className="type-icon">
+                <type.icon />
+              </div>
+              <h5>{type.name}</h5>
+              <p>{type.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="upload-section">
+        <label className="file-upload-btn">
+          <FaFileUpload /> Upload Documents
+          <input 
+            type="file" 
+            multiple 
+            onChange={handleFileUpload} 
+            hidden 
+            disabled={isAnalyzing}
+          />
+        </label>
+        <p className="upload-info">Support for multiple files: PDF, Word, PowerPoint, Excel, Images</p>
+        {isAnalyzing && (
+          <div className="analysis-progress">
+            <div className="progress-bar">
+              <div className="progress-fill"></div>
+            </div>
+            <p>Analyzing document...</p>
+          </div>
+        )}
+      </div>
+      
+      {analyzedTopics.length > 0 && (
+        <div className="extracted-topics">
+          <h4>Extracted Topics</h4>
+          <div className="topics-grid">
+            {analyzedTopics.map((topic, index) => (
+              <div
+                key={index}
+                className="topic-card"
+                onClick={() => handleTopicClick(topic)}
+              >
+                <h5>{topic}</h5>
+                <p>Click to generate learning materials</p>
+                <div className="topic-actions">
+                  <span>Quiz</span>
+                  <span>Notes</span>
+                  <span>Questions</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// Study Material Generator Component
+const StudyMaterialGenerator = ({
+  generatedStudyMaterial,
+  handleSaveStudyMaterial,
+  handleDownloadStudyMaterial,
+  setGeneratedStudyMaterial
+}) => {
+  return (
+    <div className="study-material-generator">
+      <div className="material-header">
+        <h3>Generated Study Material</h3>
+        <div className="material-actions">
+          <button onClick={handleDownloadStudyMaterial} className="action-btn">
+            <FaDownload /> Download
+          </button>
+          <button onClick={handleSaveStudyMaterial} className="action-btn">
+            <FaFolderOpen /> Save to Folder
+          </button>
+          <button onClick={() => setGeneratedStudyMaterial('')} className="action-btn close">
+            <FaTimes />
+          </button>
+        </div>
+      </div>
+      <div className="material-content">
+        <pre>{generatedStudyMaterial}</pre>
+      </div>
+      <div className="material-options">
+        <h4>Material Options</h4>
+        <div className="options-grid">
+          <div className="option-card">
+            <h5>Format as PDF</h5>
+            <p>Convert to PDF for easy printing and sharing</p>
+            <button className="option-btn">Generate PDF</button>
+          </div>
+          <div className="option-card">
+            <h5>Add to Notes</h5>
+            <p>Save as a sticky note for quick reference</p>
+            <button className="option-btn">Create Note</button>
+          </div>
+          <div className="option-card">
+            <h5>Create Quiz</h5>
+            <p>Generate a quiz based on this material</p>
+            <button className="option-btn">Create Quiz</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Enhanced Assessment Selection Component
+const AssessmentSelection = ({ subjects, startAssessment }) => {
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [questionCount, setQuestionCount] = useState(10);
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  
+  const filteredSubjects = subjects.filter(subject => {
+    if (difficultyFilter !== 'all' && subject.difficultyDistribution[difficultyFilter] === 0) {
+      return false;
+    }
+    return true;
+  });
+  
+  return (
+    <div className="assessment-selection">
+      <div className="assessment-controls">
+        <div className="control-group">
+          <label>Number of Questions:</label>
+          <input 
+            type="range" 
+            min="5" 
+            max="25" 
+            value={questionCount} 
+            onChange={(e) => setQuestionCount(parseInt(e.target.value))}
+          />
+          <span>{questionCount}</span>
+        </div>
+        
+        <div className="control-group">
+          <label>Difficulty:</label>
+          <select value={difficultyFilter} onChange={(e) => setDifficultyFilter(e.target.value)}>
+            <option value="all">All Levels</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        
+        <div className="control-group">
+          <label>Category:</label>
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="all">All Categories</option>
+            {subjects.flatMap(s => s.categories).filter((v, i, a) => a.indexOf(v) === i).map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      
+      <div className="assessment-subjects">
+        {filteredSubjects.map(subject => (
+          <div 
+            key={subject.id} 
+            className="subject-card"
+            onClick={() => startAssessment(subject.id, questionCount)}
+          >
+            <div className="subject-icon" style={{ backgroundColor: subject.color }}>
+              <subject.icon />
+            </div>
+            <div className="subject-info">
+              <h4>{subject.name}</h4>
+              <p>{subject.totalQuestions} questions</p>
+              <div className="difficulty-indicators">
+                <span className="difficulty-indicator easy">
+                  {subject.difficultyDistribution.easy} Easy
+                </span>
+                <span className="difficulty-indicator medium">
+                  {subject.difficultyDistribution.medium} Medium
+                </span>
+                <span className="difficulty-indicator hard">
+                  {subject.difficultyDistribution.hard} Hard
+                </span>
+              </div>
+              <div className="category-tags">
+                {subject.categories.map(category => (
+                  <span key={category} className="category-tag">{category}</span>
+                ))}
+              </div>
+            </div>
+            <div className="subject-action">
+              <button className="start-assessment-btn">
+                Start Assessment
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+// Enhanced Code Editor Component
+const CodeEditor = ({ toast }) => {
+  const [code, setCode] = useState('// Write your code here\nconsole.log("Hello, World!");');
+  const [language, setLanguage] = useState('javascript');
+  const [output, setOutput] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
+  const [theme, setTheme] = useState('light');
+  const [compilerError, setCompilerError] = useState('');
+  const [executionTime, setExecutionTime] = useState(0);
+  
+  const runCode = async () => {
+    setIsRunning(true);
+    setOutput('Running...');
+    setCompilerError('');
+    setExecutionTime(0);
+    
+    const startTime = performance.now();
+    
+    try {
+      // Simulate API call to code compiler service
+      const result = await AIService.executeCode(code, language);
+      
+      const endTime = performance.now();
+      setExecutionTime(endTime - startTime);
+      
+      setOutput(result);
+      
+      if (result.includes('Error:')) {
+        setCompilerError(result);
+      }
+    } catch (error) {
+      setOutput(`Error: ${error.message}`);
+      setCompilerError(error.message);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+  
+  const getLanguageExtension = () => {
+    switch (language) {
+      case 'javascript': return javascript();
+      case 'python': return python();
+      case 'html': return html();
+      case 'css': return css();
+      case 'java': return java();
+      case 'c': return cpp();
+      case 'cpp': return cpp();
+      default: return javascript();
+    }
+  };
+  
+  const getTheme = () => {
+    return theme === 'dark' ? oneDark : undefined;
+  };
+  
+  const clearCode = () => {
+    setCode('');
+    setOutput('');
+    setCompilerError('');
+    setExecutionTime(0);
+  };
+  
+  const downloadCode = () => {
+    const element = document.createElement('a');
+    const file = new Blob([code], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    
+    const lang = PROGRAMMING_LANGUAGES.find(l => l.value === language);
+    element.download = `code.${lang ? lang.extension : 'txt'}`;
+    
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    
+    toast('Code downloaded successfully!', 'success');
+  };
+  
+  return (
+    <div className="code-editor-tab">
+      <div className="section-header">
+        <h2>Code Editor & Compiler</h2>
+      </div>
+      
+      <div className="code-editor-container">
+        <div className="editor-controls">
+          <div className="control-group">
+            <label>Language:</label>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              {PROGRAMMING_LANGUAGES.map(lang => (
+                <option key={lang.value} value={lang.value}>{lang.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="control-group">
+            <label>Theme:</label>
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+            >
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          
+          <div className="editor-actions">
+            <button
+              onClick={runCode}
+              disabled={isRunning}
+              className="run-code-btn"
+            >
+              {isRunning ? 'Running...' : 'Run Code'}
+            </button>
+            <button onClick={clearCode} className="clear-code-btn">
+              Clear
+            </button>
+            <button onClick={downloadCode} className="download-code-btn">
+              Download
+            </button>
+          </div>
+        </div>
+        
+        <div className="editor-wrapper">
+          <CodeMirror
+            value={code}
+            height="400px"
+            extensions={[getLanguageExtension()]}
+            onChange={(value) => setCode(value)}
+            theme={getTheme()}
+          />
+        </div>
+        
+        <div className="output-container">
+          <div className="output-header">
+            <h3>Output:</h3>
+            {executionTime > 0 && (
+              <span className="execution-time">
+                Execution time: {executionTime.toFixed(2)}ms
+              </span>
+            )}
+          </div>
+          {compilerError && (
+            <div className="compiler-error">
+              <FaExclamationTriangle /> {compilerError}
+            </div>
+          )}
+          <pre className="output">{output}</pre>
+        </div>
+        
+        <div className="compiler-info">
+          <h4>Supported Languages:</h4>
+          <ul>
+            <li>JavaScript - Runs in browser with eval() (limited for security)</li>
+            <li>Python - Simulated execution</li>
+            <li>HTML - Preview in browser</li>
+            <li>CSS - Style preview</li>
+            <li>Java - Simulated compilation</li>
+            <li>C/C++ - Simulated compilation</li>
+          </ul>
+          <p className="compiler-note">
+            Note: This is a simulated code execution environment. In a production environment, 
+            you would use a secure sandboxed execution environment.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Enhanced Formulas Section Component
+const FormulasSection = () => {
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFormula, setSelectedFormula] = useState(null);
+  
+  const formulaCategories = [
+    { id: 'geometry', name: 'Geometry', icon: FaShapes },
+    { id: 'algebra', name: 'Algebra', icon: FaChartLine },
+    { id: 'calculus', name: 'Calculus', icon: FaChartBar },
+    { id: 'trigonometry', name: 'Trigonometry', icon: FaRuler },
+    { id: 'statistics', name: 'Statistics', icon: FaChartPie },
+    { id: 'probability', name: 'Probability', icon: FaChartLine }
+  ];
+  
+  const filteredFormulas = MATH_FORMULAS.filter(formula => {
+    const matchesCategory = selectedCategory === 'all' || formula.name.toLowerCase().includes(selectedCategory);
+    const matchesSearch = formula.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          formula.formulas.some(f => 
+                            f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            f.formula.toLowerCase().includes(searchQuery.toLowerCase())
+                          );
+    return matchesCategory && matchesSearch;
+  });
+  
+  return (
+    <div className="formulas-section">
+      <div className="section-header">
+        <h2>Mathematical Formulas</h2>
+      </div>
+      
+      <div className="formulas-controls">
+        <div className="category-filter">
+          {formulaCategories.map(category => (
+            <button
+              key={category.id}
+              className={`category-btn ${selectedCategory === category.id ? 'active' : ''}`}
+              onClick={() => setSelectedCategory(category.id)}
+            >
+              <category.icon /> {category.name}
+            </button>
+          ))}
+        </div>
+        
+        <div className="search-formulas">
+          <input
+            type="text"
+            placeholder="Search formulas..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <FaSearch />
+        </div>
+      </div>
+      
+      <div className="formulas-grid">
+        {filteredFormulas.map(formula => (
+          <div key={formula.name} className="formula-card">
+            <div className="formula-header">
+              <h3>{formula.name}</h3>
+              <button 
+                onClick={() => setSelectedFormula(formula)}
+                className="view-formula-btn"
+              >
+                View Details
+              </button>
+            </div>
+            
+            <div className="formula-content">
+              <div className="formula-list">
+                {formula.formulas.map((f, index) => (
+                  <div key={index} className="formula-item">
+                    <span className="formula-name">{f.name}:</span>
+                    <span className="formula-text">{f.formula}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="formula-diagram">
+                <img 
+                  src={`/diagrams/${formula.diagram}`} 
+                  alt={`${formula.name} diagram`}
+                  className="diagram-image"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://via.placeholder.com/300x200?text=Diagram+Not+Available';
+                  }}
+                />
+              </div>
+            </div>
+            
+            <div className="formula-actions">
+              <button className="save-formula-btn">
+                <FaBookmark /> Save
+              </button>
+              <button className="share-formula-btn">
+                <FaShare /> Share
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {selectedFormula && (
+        <div className="formula-detail-modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>{selectedFormula.name} Formulas</h3>
+              <button 
+                onClick={() => setSelectedFormula(null)}
+                className="close-btn"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="formula-detail-list">
+                {selectedFormula.formulas.map((formula, index) => (
+                  <div key={index} className="formula-detail-item">
+                    <h4>{formula.name}</h4>
+                    <div className="formula-display">
+                      {formula.formula}
+                    </div>
+                    <p className="formula-description">
+                      {getFormulaDescription(selectedFormula.name, formula.name)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="formula-detail-diagram">
+                <img 
+                  src={`/diagrams/${selectedFormula.diagram}`} 
+                  alt={`${selectedFormula.name} diagram`}
+                  className="detail-diagram-image"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://via.placeholder.com/600x400?text=Diagram+Not+Available';
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// Helper function to get formula description
+const getFormulaDescription = (category, formulaName) => {
+  const descriptions = {
+    'Algebra': {
+      'Quadratic Formula': 'Used to find the roots of a quadratic equation ax² + bx + c = 0.',
+      'Distance Formula': 'Calculates the distance between two points in a coordinate plane.',
+      'Slope Formula': 'Determines the steepness of a line between two points.',
+      'Midpoint Formula': 'Finds the midpoint between two points in a coordinate plane.',
+      'Exponent Rules': 'Rules for simplifying expressions with exponents.'
+    },
+    'Geometry': {
+      'Pythagorean Theorem': 'In a right triangle, the square of the hypotenuse equals the sum of squares of the other two sides.',
+      'Area of Triangle': 'Calculates the area of a triangle using base and height.',
+      'Area of Circle': 'Computes the area enclosed by a circle.',
+      'Circumference of Circle': 'Measures the perimeter or distance around a circle.',
+      'Volume of Sphere': 'Calculates the space occupied by a sphere.'
+    },
+    'Trigonometry': {
+      'Sine Rule': 'Relates the lengths of the sides of a triangle to the sines of its angles.',
+      'Cosine Rule': 'Relates the lengths of the sides of a triangle to the cosine of one of its angles.',
+      'Area of Triangle (Trig)': 'Calculates the area of a triangle using two sides and the included angle.',
+      'Pythagorean Identity': 'Fundamental identity in trigonometry relating sine and cosine.',
+      'Double Angle Formula': 'Expresses trigonometric functions of twice an angle in terms of the angle.'
+    },
+    'Calculus': {
+      'Derivative of x^n': 'Basic rule for differentiating power functions.',
+      'Power Rule': 'Rule for differentiating products of functions.',
+      'Chain Rule': 'Method for differentiating composite functions.',
+      'Integral of x^n': 'Basic rule for integrating power functions.',
+      'Fundamental Theorem': 'Connects differentiation and integration.'
+    },
+    'Statistics': {
+      'Mean': 'Average value of a set of numbers.',
+      'Median': 'Middle value when numbers are arranged in order.',
+      'Mode': 'Most frequently occurring value in a data set.',
+      'Variance': 'Measure of how spread out the numbers are.',
+      'Standard Deviation': 'Square root of variance, measuring dispersion.'
+    },
+    'Probability': {
+      'Simple Probability': 'Likelihood of a single event occurring.',
+      'Addition Rule': 'Probability of either of two events occurring.',
+      'Multiplication Rule': 'Probability of two events occurring together.',
+      'Conditional Probability': 'Probability of an event given that another event has occurred.',
+      'Bayes\' Theorem': 'Formula for conditional probabilities.'
+    }
+  };
+  
+  return descriptions[category]?.[formulaName] || 'No description available.';
+};
+// Enhanced AI Content Generator Component
+const AIContentGenerator = ({ toast }) => {
+  const [topic, setTopic] = useState('');
+  const [contentType, setContentType] = useState('quiz');
+  const [generatedContent, setGeneratedContent] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedAI, setSelectedAI] = useState('gpt-4');
+  const [showPreview, setShowPreview] = useState(false);
+  
+  const generateContent = async () => {
+    if (!topic.trim()) {
+      toast('Please enter a topic', 'warning');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      const content = await AIService.generateContent(topic, contentType, selectedAI);
+      setGeneratedContent(content);
+      toast('Content generated successfully!', 'success');
+    } catch (error) {
+      toast(error.message, 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  const downloadContent = () => {
+    const element = document.createElement('a');
+    const file = new Blob([generatedContent], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `${topic.replace(/\s+/g, '_')}_${contentType}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    toast('Content downloaded!', 'success');
+  };
+  
+  const saveToNotes = () => {
+    // Save generated content as a sticky note
+    const newNote = {
+      id: Date.now(),
+      content: generatedContent,
+      color: "#dbeafe",
+      category: topic,
+      createdAt: new Date()
+    };
+    setStickyNotes(prev => [...prev, newNote]);
+    toast('Content saved to notes!', 'success');
+  };
+  
+  return (
+    <div className="ai-content-generator">
+      <div className="tool-header">
+        <h3><FaRobot /> AI Content Generator</h3>
+        <p>Generate educational content using AI</p>
+      </div>
+      
+      <div className="ai-model-selector">
+        <h4>Select AI Model:</h4>
+        <div className="ai-models-grid">
+          {AI_MODELS.map(model => (
+            <div 
+              key={model.id}
+              className={`ai-model-card ${selectedAI === model.id ? 'selected' : ''}`}
+              onClick={() => setSelectedAI(model.id)}
+            >
+              <h5>{model.name}</h5>
+              <p>{model.description}</p>
+              <span className="ai-provider">{model.provider}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="tool-controls">
+        <div className="control-group">
+          <label>Topic:</label>
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Enter a topic..."
+          />
+        </div>
+        
+        <div className="control-group">
+          <label>Content Type:</label>
+          <select
+            value={contentType}
+            onChange={(e) => setContentType(e.target.value)}
+          >
+            <option value="quiz">Quiz</option>
+            <option value="study">Study Material</option>
+            <option value="questions">Important Questions</option>
+            <option value="notes">Sticky Notes</option>
+          </select>
+        </div>
+        
+        <button
+          onClick={generateContent}
+          className="generate-btn"
+          disabled={isGenerating}
+        >
+          {isGenerating ? 'Generating...' : 'Generate Content'}
+        </button>
+      </div>
+      
+      {generatedContent && (
+        <div className="generated-content">
+          <div className="content-header">
+            <h4>Generated Content</h4>
+            <div className="content-actions">
+              <button onClick={() => setShowPreview(!showPreview)} className="action-btn">
+                {showPreview ? <FaEyeSlash /> : <FaEye />} {showPreview ? 'Hide Preview' : 'Show Preview'}
+              </button>
+              <button onClick={saveToNotes} className="action-btn">
+                <FaStickyNote /> Save to Notes
+              </button>
+              <button onClick={downloadContent} className="action-btn">
+                <FaDownload /> Download
+              </button>
+            </div>
+          </div>
+          
+          {showPreview ? (
+            <div className="content-preview">
+              <pre>{generatedContent}</pre>
+            </div>
+          ) : (
+            <div className="content-summary">
+              <p>Content generated successfully. Click "Show Preview" to view the full content.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+// Enhanced Collaboration Component
+const CollaborationTab = () => {
+  const [studyRooms, setStudyRooms] = useState([
+    { 
+      id: 1, 
+      name: 'Mathematics Study Group', 
+      members: 5, 
+      status: 'active', 
+      nextMeeting: 'Today, 4:00 PM',
+      tools: ['video', 'whiteboard', 'files'],
+      description: 'Weekly study group for advanced mathematics topics'
+    },
+    { 
+      id: 2, 
+      name: 'Physics Project Team', 
+      members: 3, 
+      status: 'scheduled', 
+      nextMeeting: 'Tomorrow, 2:00 PM',
+      tools: ['video', 'code', 'files'],
+      description: 'Collaborative project on quantum physics'
+    },
+    { 
+      id: 3, 
+      name: 'Literature Discussion', 
+      members: 7, 
+      status: 'active', 
+      nextMeeting: 'Friday, 5:00 PM',
+      tools: ['video', 'whiteboard'],
+      description: 'Book club discussing classic literature'
+    }
+  ]);
+  
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomDescription, setNewRoomDescription] = useState('');
+  const [selectedTools, setSelectedTools] = useState(['video']);
+  const [activeRoom, setActiveRoom] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  
+  const collaborationTools = COLLABORATION_TOOLS;
+  
+  const createStudyRoom = () => {
+    if (newRoomName.trim()) {
+      const newRoom = {
+        id: Date.now(),
+        name: newRoomName.trim(),
+        description: newRoomDescription.trim(),
+        members: 1,
+        status: 'scheduled',
+        nextMeeting: 'Not scheduled',
+        tools: selectedTools
+      };
+      setStudyRooms(prev => [...prev, newRoom]);
+      setNewRoomName('');
+      setNewRoomDescription('');
+      setSelectedTools(['video']);
+      setIsCreatingRoom(false);
+      toast('Study room created successfully!', 'success');
+    }
+  };
+  
+  const joinRoom = (roomId) => {
+    setActiveRoom(roomId);
+    // Simulate loading messages
+    setMessages([
+      { id: 1, user: 'System', text: 'Welcome to the study room!', timestamp: new Date() },
+      { id: 2, user: 'Sarah', text: 'Hi everyone! Ready to study?', timestamp: new Date() },
+      { id: 3, user: 'Mike', text: 'Yes, I have some questions about chapter 3.', timestamp: new Date() }
+    ]);
+  };
+  
+  const sendMessage = () => {
+    if (newMessage.trim()) {
+      const message = {
+        id: Date.now(),
+        user: 'You',
+        text: newMessage.trim(),
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, message]);
+      setNewMessage('');
+    }
+  };
+  
+  const toggleTool = (toolId) => {
+    setSelectedTools(prev => 
+      prev.includes(toolId) 
+        ? prev.filter(id => id !== toolId)
+        : [...prev, toolId]
+    );
+  };
+  
+  return (
+    <div className="collaboration-tab">
+      <div className="section-header">
+        <h2>Collaboration</h2>
+        <div className="section-actions">
+          <button 
+            onClick={() => setIsCreatingRoom(true)} 
+            className="create-room-btn"
+          >
+            <FaComments /> Create Room
+          </button>
+        </div>
+      </div>
+      
+      {isCreatingRoom && (
+        <div className="create-room-form">
+          <div className="form-group">
+            <label>Room Name:</label>
+            <input
+              type="text"
+              value={newRoomName}
+              onChange={(e) => setNewRoomName(e.target.value)}
+              placeholder="Enter room name"
+            />
+          </div>
+          <div className="form-group">
+            <label>Description:</label>
+            <textarea
+              value={newRoomDescription}
+              onChange={(e) => setNewRoomDescription(e.target.value)}
+              placeholder="Enter room description"
+              rows={3}
+            />
+          </div>
+          <div className="form-group">
+            <label>Select Tools:</label>
+            <div className="tools-selector">
+              {collaborationTools.map(tool => (
+                <div
+                  key={tool.id}
+                  className={`tool-option ${selectedTools.includes(tool.id) ? 'selected' : ''}`}
+                  onClick={() => toggleTool(tool.id)}
+                >
+                  <tool.icon />
+                  <span>{tool.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="form-actions">
+            <button onClick={createStudyRoom} className="create-btn">
+              Create Room
+            </button>
+            <button onClick={() => setIsCreatingRoom(false)} className="cancel-btn">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {!activeRoom ? (
+        <div className="collaboration-content">
+          <div className="rooms-section">
+            <h3>Your Study Rooms</h3>
+            <div className="rooms-grid">
+              {studyRooms.map(room => (
+                <div key={room.id} className="room-card">
+                  <div className="room-header">
+                    <h4>{room.name}</h4>
+                    <span className={`room-status ${room.status}`}>
+                      {room.status === 'active' ? 'Active' : 'Scheduled'}
+                    </span>
+                  </div>
+                  
+                  <p className="room-description">{room.description}</p>
+                  
+                  <div className="room-members">
+                    <div className="member-avatars">
+                      <div className="member-avatar">JD</div>
+                      <div className="member-avatar">AS</div>
+                      <div className="member-avatar">MK</div>
+                      {room.members > 3 && (
+                        <div className="member-avatar more">+{room.members - 3}</div>
+                      )}
+                    </div>
+                    <p className="member-count">{room.members} members</p>
+                  </div>
+                  
+                  <div className="room-schedule">
+                    <p><FaClock /> {room.nextMeeting}</p>
+                  </div>
+                  
+                  <div className="room-tools">
+                    {room.tools.map(toolId => {
+                      const tool = collaborationTools.find(t => t.id === toolId);
+                      return tool ? (
+                        <span key={toolId} className="room-tool">
+                          <tool.icon /> {tool.name}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                  
+                  <div className="room-footer">
+                    <button onClick={() => joinRoom(room.id)} className="join-room-btn">
+                      Join Room
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="collaboration-tools">
+            <h3>Available Collaboration Tools</h3>
+            <div className="tools-grid">
+              {collaborationTools.map(tool => (
+                <div
+                  key={tool.id}
+                  className={`tool-card ${selectedTools.includes(tool.id) ? 'selected' : ''}`}
+                  onClick={() => toggleTool(tool.id)}
+                >
+                  <div className="tool-icon">
+                    <tool.icon />
+                  </div>
+                  <h4>{tool.name}</h4>
+                  <p>{tool.description}</p>
+                  <div className="tool-selection">
+                    {selectedTools.includes(tool.id) ? (
+                      <span className="selected-indicator">Selected</span>
+                    ) : (
+                      <span className="select-indicator">Click to select</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="active-room">
+          <div className="room-header">
+            <h2>{studyRooms.find(r => r.id === activeRoom)?.name}</h2>
+            <button onClick={() => setActiveRoom(null)} className="leave-room-btn">
+              Leave Room
+            </button>
+          </div>
+          
+          <div className="room-content">
+            <div className="room-tools-panel">
+              <h3>Available Tools</h3>
+              <div className="active-tools">
+                {studyRooms.find(r => r.id === activeRoom)?.tools.map(toolId => {
+                  const tool = collaborationTools.find(t => t.id === toolId);
+                  return tool ? (
+                    <div key={toolId} className="active-tool">
+                      <div className="tool-icon">
+                        <tool.icon />
+                      </div>
+                      <h4>{tool.name}</h4>
+                      <p>{tool.description}</p>
+                      <button className="launch-tool-btn">
+                        Launch {tool.name}
+                      </button>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            </div>
+            
+            <div className="room-chat">
+              <h3>Group Chat</h3>
+              <div className="chat-messages">
+                {messages.map(message => (
+                  <div key={message.id} className="chat-message">
+                    <div className="message-header">
+                      <span className="message-user">{message.user}</span>
+                      <span className="message-time">
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="message-text">{message.text}</p>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="chat-input">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                />
+                <button onClick={sendMessage} className="send-message-btn">
+                  <FaPaperPlane />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// Enhanced Study Materials Component
+const StudyMaterialsTab = () => {
+  const [materials, setMaterials] = useState([
+    {
+      id: 1,
+      title: 'Algebra Fundamentals',
+      type: 'pdf',
+      category: 'Mathematics',
+      uploadDate: new Date('2025-07-10'),
+      size: 2.4,
+      preview: 'This comprehensive guide covers all fundamental algebra concepts...'
+    },
+    {
+      id: 2,
+      title: 'Physics Lab Manual',
+      type: 'pdf',
+      category: 'Physics',
+      uploadDate: new Date('2025-07-12'),
+      size: 5.1,
+      preview: 'Detailed instructions for all physics experiments with safety guidelines...'
+    },
+    {
+      id: 3,
+      title: 'Chemical Reactions Chart',
+      type: 'image',
+      category: 'Chemistry',
+      uploadDate: new Date('2025-07-15'),
+      size: 1.2,
+      preview: 'Visual reference chart showing common chemical reactions and their products...'
+    }
+  ]);
+  
+  const [selectedMaterial, setSelectedMaterial] = useState(null);
+  const [viewMode, setViewMode] = useState('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  
+  const filteredMaterials = materials.filter(material => {
+    const matchesSearch = material.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          material.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          material.preview.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || material.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+  
+  const viewMaterial = (material) => {
+    setSelectedMaterial(material);
+  };
+  
+  const downloadMaterial = (material) => {
+    // Simulate download
+    toast(`Downloading ${material.title}...`, 'info');
+  };
+  
+  const deleteMaterial = (id) => {
+    if (window.confirm('Are you sure you want to delete this material?')) {
+      setMaterials(prev => prev.filter(m => m.id !== id));
+      toast('Material deleted successfully!', 'success');
+    }
+  };
+  
+  const categories = [...new Set(materials.map(m => m.category))];
+  
+  return (
+    <div className="study-materials-tab">
+      <div className="section-header">
+        <h2>Study Materials</h2>
+        <div className="view-controls">
+          <div className="search-container">
+            <FaSearch className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search materials..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="filter-container">
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <option value="all">All Categories</option>
+              {categories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div className="view-mode-toggle">
+            <button 
+              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+            >
+              <FaTh /> Grid
+            </button>
+            <button 
+              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              <FaList /> List
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div className={`materials-container ${viewMode}`}>
+        {filteredMaterials.map(material => (
+          <div key={material.id} className="material-card">
+            <div className="material-header">
+              <div className="material-icon">
+                {material.type === 'pdf' ? <FaFilePdf /> :
+                 material.type === 'image' ? <FaFileImage /> :
+                 material.type === 'video' ? <FaFileVideo /> :
+                 <FaFileAlt />}
+              </div>
+              <div className="material-info">
+                <h3>{material.title}</h3>
+                <div className="material-meta">
+                  <span className="material-category">{material.category}</span>
+                  <span className="material-size">{(material.size / 1024).toFixed(2)} KB</span>
+                  <span className="material-date">{material.uploadDate.toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="material-preview">
+              <p>{material.preview}</p>
+            </div>
+            
+            <div className="material-actions">
+              <button 
+                onClick={() => viewMaterial(material)}
+                className="action-btn"
+              >
+                <FaEye /> View
+              </button>
+              <button 
+                onClick={() => downloadMaterial(material)}
+                className="action-btn"
+              >
+                <FaDownload /> Download
+              </button>
+              <button 
+                onClick={() => deleteMaterial(material.id)}
+                className="action-btn danger"
+              >
+                <FaTrash /> Delete
+              </button>
+            </div>
+          </div>
+        ))}
+        
+        {filteredMaterials.length === 0 && (
+          <div className="no-materials">
+            <p>No materials found matching your criteria.</p>
+          </div>
+        )}
+      </div>
+      
+      {selectedMaterial && (
+        <div className="material-viewer-modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>{selectedMaterial.title}</h3>
+              <button onClick={() => setSelectedMaterial(null)} className="close-btn">
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {selectedMaterial.type === 'pdf' ? (
+                <div className="pdf-viewer">
+                  <iframe 
+                    src={`/materials/${selectedMaterial.id}.pdf`} 
+                    title={selectedMaterial.title}
+                    className="pdf-iframe"
+                  ></iframe>
+                </div>
+              ) : selectedMaterial.type === 'image' ? (
+                <div className="image-viewer">
+                  <img 
+                    src={`/materials/${selectedMaterial.id}.jpg`} 
+                    alt={selectedMaterial.title}
+                    className="material-image"
+                  />
+                </div>
+              ) : (
+                <div className="text-viewer">
+                  <pre>{selectedMaterial.content}</pre>
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                onClick={() => downloadMaterial(selectedMaterial)}
+                className="action-btn"
+              >
+                <FaDownload /> Download
+              </button>
+              <button 
+                onClick={() => deleteMaterial(selectedMaterial.id)}
+                className="action-btn danger"
+              >
+                <FaTrash /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// Enhanced Important Questions Component
+const ImportantQuestionsTab = () => {
+  const [questions, setQuestions] = useState([
+    {
+      id: 1,
+      question: "Explain Newton's laws of motion with examples.",
+      subject: "Physics",
+      grade: "10",
+      difficulty: 'Medium',
+      starred: true,
+      category: "Mechanics"
+    },
+    {
+      id: 2,
+      question: "What is the significance of the Industrial Revolution?",
+      subject: "History",
+      grade: "9",
+      difficulty: 'Easy',
+      starred: false,
+      category: "World History"
+    },
+    {
+      id: 3,
+      question: "Solve the quadratic equation: x² - 5x + 6 = 0",
+      subject: "Mathematics",
+      grade: "11",
+      difficulty: 'Hard',
+      starred: true,
+      category: "Algebra"
+    }
+  ]);
+  
+  const [newQuestion, setNewQuestion] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState('');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('Medium');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [filterGrade, setFilterGrade] = useState('all');
+  const [filterSubject, setFilterSubject] = useState('all');
+  const [filterDifficulty, setFilterDifficulty] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'English', 'Computer Science', 'Geography'];
+  const grades = ['6', '7', '8', '9', '10', '11', '12'];
+  const difficulties = ['Easy', 'Medium', 'Hard'];
+  
+  const addQuestion = () => {
+    if (newQuestion.trim() && selectedSubject && selectedGrade) {
+      const question = {
+        id: Date.now(),
+        question: newQuestion.trim(),
+        subject: selectedSubject,
+        grade: selectedGrade,
+        difficulty: selectedDifficulty,
+        category: selectedCategory || 'General',
+        starred: false
+      };
+      setQuestions(prev => [...prev, question]);
+      setNewQuestion('');
+      setSelectedSubject('');
+      setSelectedGrade('');
+      setSelectedDifficulty('Medium');
+      setSelectedCategory('');
+      setShowAddModal(false);
+      toast('Question added successfully!', 'success');
+    } else {
+      toast('Please fill in all required fields', 'warning');
+    }
+  };
+  
+  const toggleStar = (id) => {
+    setQuestions(prev =>
+      prev.map(q => q.id === id ? { ...q, starred: !q.starred } : q)
+    );
+  };
+  
+  const deleteQuestion = (id) => {
+    setQuestions(prev => prev.filter(q => q.id !== id));
+    toast('Question deleted successfully!', 'success');
+  };
+  
+  const filteredQuestions = questions.filter(q => {
+    return (filterGrade === 'all' || q.grade === filterGrade) &&
+           (filterSubject === 'all' || q.subject === filterSubject) &&
+           (filterDifficulty === 'all' || q.difficulty === filterDifficulty);
+  });
+  
+  return (
+    <div className="important-questions-tab">
+      <div className="section-header">
+        <h2>Important Questions</h2>
+        <button onClick={() => setShowAddModal(true)} className="add-question-btn">
+          <FaPlus /> Add Question
+        </button>
+      </div>
+      
+      <div className="questions-filters">
+        <div className="filter-group">
+          <label>Grade:</label>
+          <select value={filterGrade} onChange={(e) => setFilterGrade(e.target.value)}>
+            <option value="all">All Grades</option>
+            {grades.map(grade => (
+              <option key={grade} value={grade}>Grade {grade}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="filter-group">
+          <label>Subject:</label>
+          <select value={filterSubject} onChange={(e) => setFilterSubject(e.target.value)}>
+            <option value="all">All Subjects</option>
+            {subjects.map(subject => (
+              <option key={subject} value={subject}>{subject}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="filter-group">
+          <label>Difficulty:</label>
+          <select value={filterDifficulty} onChange={(e) => setFilterDifficulty(e.target.value)}>
+            <option value="all">All Levels</option>
+            {difficulties.map(difficulty => (
+              <option key={difficulty} value={difficulty}>{difficulty}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      
+      <div className="questions-list">
+        {filteredQuestions.map(question => (
+          <div key={question.id} className="question-card">
+            <div className="question-header">
+              <div className="question-meta">
+                <span className="question-grade">Grade {question.grade}</span>
+                <span className="question-subject">{question.subject}</span>
+                <span className={`question-difficulty ${question.difficulty.toLowerCase()}`}>
+                  {question.difficulty}
+                </span>
+                {question.category && (
+                  <span className="question-category">{question.category}</span>
+                )}
+              </div>
+              
+              <div className="question-actions">
+                <button 
+                  onClick={() => toggleStar(question.id)}
+                  className={`star-btn ${question.starred ? 'starred' : ''}`}
+                >
+                  {question.starred ? <FaStar /> : <FaRegStar />}
+                </button>
+                <button 
+                  onClick={() => deleteQuestion(question.id)}
+                  className="delete-btn"
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </div>
+            
+            <div className="question-content">
+              <p className="question-text">{question.question}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Add Question Modal */}
+      {showAddModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Add New Question</h3>
+              <button 
+                onClick={() => setShowAddModal(false)} 
+                className="close-btn"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Question:</label>
+                <textarea
+                  value={newQuestion}
+                  onChange={(e) => setNewQuestion(e.target.value)}
+                  placeholder="Enter the question..."
+                  rows={3}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Subject:</label>
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                >
+                  <option value="">Select a subject</option>
+                  {subjects.map(subject => (
+                    <option key={subject} value={subject}>{subject}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Grade:</label>
+                <select
+                  value={selectedGrade}
+                  onChange={(e) => setSelectedGrade(e.target.value)}
+                >
+                  <option value="">Select a grade</option>
+                  {grades.map(grade => (
+                    <option key={grade} value={grade}>Grade {grade}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Difficulty:</label>
+                <select
+                  value={selectedDifficulty}
+                  onChange={(e) => setSelectedDifficulty(e.target.value)}
+                >
+                  {difficulties.map(difficulty => (
+                    <option key={difficulty} value={difficulty}>{difficulty}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Category (optional):</label>
+                <input
+                  type="text"
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  placeholder="Enter a category"
+                />
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                onClick={() => setShowAddModal(false)} 
+                className="cancel-btn"
+              >
+                Cancel
+              </button>
+              <button onClick={addQuestion} className="save-btn">
+                Add Question
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// Enhanced Achievements Component with betterment tracking
+const AchievementsTab = () => {
+  const [achievements, setAchievements] = useState(ACHIEVEMENTS);
+  const [assessmentHistory, setAssessmentHistory] = useState([
+    { id: 1, subject: 'Mathematics', score: 85, date: '2025-07-10', improvement: '+5%' },
+    { id: 2, subject: 'Physics', score: 78, date: '2025-07-12', improvement: '+3%' },
+    { id: 3, subject: 'Chemistry', score: 92, date: '2025-07-15', improvement: '+8%' },
+  ]);
+  
+  const improvementData = {
+    labels: assessmentHistory.map(item => item.subject),
+    datasets: [{
+      label: 'Improvement %',
+      data: assessmentHistory.map(item => parseInt(item.improvement.replace('+', '').replace('%', ''))),
+      backgroundColor: 'rgba(16, 185, 129, 0.6)',
+      borderColor: 'rgba(16, 185, 129, 1)',
+      borderWidth: 1,
+    }]
+  };
+  
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(0, 0, 0, 0.1)' },
+        ticks: { color: '#64748b' },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#64748b' },
+      },
+    },
+  };
+  
+  return (
+    <div className="achievements-tab">
+      <div className="section-header">
+        <h2>Achievements & Assessment Progress</h2>
+      </div>
+      
+      <div className="achievements-grid">
+        {achievements.map(achievement => (
+          <div key={achievement.id} className={`achievement-card ${achievement.unlocked ? '' : 'locked'}`}>
+            <div className="achievement-icon">
+              <achievement.icon />
+            </div>
+            <h3>{achievement.title}</h3>
+            <p>{achievement.description}</p>
+            <div className="achievement-status">
+              {achievement.unlocked ? (
+                <span className="status-unlocked">Unlocked</span>
+              ) : (
+                <span className="status-locked">Locked</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      <div className="assessment-betterment">
+        <h3>Assessment Improvement Tracker</h3>
+        <div className="improvement-chart">
+          <Bar data={improvementData} options={chartOptions} />
+        </div>
+        
+        <div className="assessment-history">
+          <h4>Recent Assessment History</h4>
+          <div className="history-list">
+            {assessmentHistory.map(item => (
+              <div key={item.id} className="history-item">
+                <div className="history-subject">{item.subject}</div>
+                <div className="history-score">{item.score}%</div>
+                <div className="history-improvement">{item.improvement}</div>
+                <div className="history-date">{new Date(item.date).toLocaleDateString()}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Study Resources Component
+const StudyResourcesTab = () => {
+  const resources = STUDY_RESOURCES;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  
+  const categories = [...new Set(resources.map(r => r.description.split(' ')[0]))];
+  
+  const filteredResources = resources.filter(resource => {
+    const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          resource.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || 
+                           resource.description.toLowerCase().includes(selectedCategory.toLowerCase());
+    return matchesSearch && matchesCategory;
+  });
+  
+  return (
+    <div className="study-resources-tab">
+      <div className="section-header">
+        <h2>Study Resources</h2>
+        <div className="resource-controls">
+          <div className="search-container">
+            <FaSearch className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search resources..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="filter-container">
+            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+              <option value="all">All Categories</option>
+              {categories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div className="resources-grid">
+        {filteredResources.map((resource, index) => (
+          <div key={index} className="resource-card">
+            <div className="resource-icon">
+              <resource.icon />
+            </div>
+            <h3>{resource.name}</h3>
+            <p>{resource.description}</p>
+            <a href={resource.url} target="_blank" rel="noopener noreferrer" className="resource-link">
+              Visit Resource
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+// Folder/File Explorer Component
+const FileExplorer = ({ 
+  folders, 
+  files, 
+  currentFolder, 
+  setCurrentFolder, 
+  createFolder, 
+  createFile, 
+  uploadFiles,
+  deleteItem,
+  downloadFile,
+  previewFile
+}) => {
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFileName, setNewFileName] = useState('');
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [showCreateFile, setShowCreateFile] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const handleCreateFolder = () => {
+    if (newFolderName.trim()) {
+      createFolder(newFolderName.trim(), currentFolder);
+      setNewFolderName('');
+      setShowCreateFolder(false);
+    }
+  };
+  
+  const handleCreateFile = () => {
+    if (newFileName.trim()) {
+      createFile(newFileName.trim(), currentFolder);
+      setNewFileName('');
+      setShowCreateFile(false);
+    }
+  };
+  
+  const handleUploadFiles = (e) => {
+    uploadFiles(e.target.files, currentFolder);
+  };
+  
+  const filteredFolders = currentFolder 
+    ? folders.filter(folder => folder.parentId === currentFolder && 
+                           folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : folders.filter(folder => !folder.parentId && 
+                           folder.name.toLowerCase().includes(searchQuery.toLowerCase()));
+                            
+  const filteredFiles = currentFolder
+    ? files.filter(file => file.folderId === currentFolder && 
+                         file.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : files.filter(file => !file.folderId && 
+                         file.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  
+  const currentFolderName = currentFolder 
+    ? folders.find(f => f.id === currentFolder)?.name 
+    : 'Root';
+  
+  return (
+    <div className="file-explorer">
+      <div className="explorer-header">
+        <div className="breadcrumb">
+          <button onClick={() => setCurrentFolder(null)}>Root</button>
+          {currentFolder && (
+            <>
+              <span>/</span>
+              <span>{currentFolderName}</span>
+            </>
+          )}
+        </div>
+        
+        <div className="explorer-actions">
+          <div className="search-container">
+            <FaSearch className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search files and folders..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <button onClick={() => setShowCreateFolder(true)} className="action-btn">
+            <FaFolderPlus /> New Folder
+          </button>
+          <button onClick={() => setShowCreateFile(true)} className="action-btn">
+            <FaFile /> New File
+          </button>
+          <label className="file-upload-btn">
+            <FaFileUpload /> Upload Files
+            <input type="file" multiple onChange={handleUploadFiles} hidden />
+          </label>
+        </div>
+      </div>
+      
+      {showCreateFolder && (
+        <div className="create-item">
+          <input
+            type="text"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            placeholder="Folder name"
+            autoFocus
+          />
+          <div className="create-actions">
+            <button onClick={handleCreateFolder}>Create</button>
+            <button onClick={() => setShowCreateFolder(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      
+      {showCreateFile && (
+        <div className="create-item">
+          <input
+            type="text"
+            value={newFileName}
+            onChange={(e) => setNewFileName(e.target.value)}
+            placeholder="File name"
+            autoFocus
+          />
+          <div className="create-actions">
+            <button onClick={handleCreateFile}>Create</button>
+            <button onClick={() => setShowCreateFile(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      
+      <div className="explorer-content">
+        <div className="folders-section">
+          <h3>Folders</h3>
+          {filteredFolders.length > 0 ? (
+            <div className="folders-grid">
+              {filteredFolders.map(folder => (
+                <div key={folder.id} className="folder-item">
+                  <div className="folder-icon">
+                    <FaFolderSolid style={{ color: folder.color }} />
+                  </div>
+                  <div className="folder-info">
+                    <p className="folder-name">{folder.name}</p>
+                    <p className="folder-meta">{folder.childrenCount || 0} items</p>
+                  </div>
+                  <div className="folder-actions">
+                    <button 
+                      onClick={() => setCurrentFolder(folder.id)} 
+                      className="folder-action-btn"
+                    >
+                      Open
+                    </button>
+                    <button 
+                      onClick={() => deleteItem('folder', folder.id)} 
+                      className="folder-action-btn delete"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="no-items">No folders</p>
+          )}
+        </div>
+        
+        <div className="files-section">
+          <h3>Files</h3>
+          {filteredFiles.length > 0 ? (
+            <div className="files-list">
+              {filteredFiles.map(file => (
+                <div key={file.id} className="file-item">
+                  <div className="file-icon">
+                    {file.type.includes('image') ? <FaFileAlt /> :
+                     file.type.includes('pdf') ? <FaFilePdf /> :
+                     file.type.includes('word') ? <FaFileWord /> :
+                     file.type.includes('excel') ? <FaFileExcel /> :
+                     file.type.includes('powerpoint') ? <FaFilePowerpoint /> :
+                     <FaFileAlt />}
+                  </div>
+                  <div className="file-info">
+                    <p className="file-name">{file.name}</p>
+                    <p className="file-meta">
+                      {(file.size / 1024).toFixed(2)} KB • {file.uploadDate.toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="file-actions">
+                    <button 
+                      onClick={() => previewFile(file)} 
+                      className="file-action-btn"
+                    >
+                      View
+                    </button>
+                    <button 
+                      onClick={() => downloadFile(file)} 
+                      className="file-action-btn"
+                    >
+                      <FaDownload />
+                    </button>
+                    <button 
+                      onClick={() => deleteItem('file', file.id)} 
+                      className="file-action-btn delete"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="no-items">No files</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+// Enhanced Calendar with Task Management
+const CalendarTab = ({ events, setEvents }) => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [calendarTasks, setCalendarTasks] = useState([
+    { id: 1, title: 'Complete math assignment', date: '2025-07-15', completed: false, status: 'pending' },
+    { id: 2, title: 'Study for physics exam', date: '2025-07-18', completed: false, status: 'ongoing' },
+    { id: 3, title: 'Read chapter 5', date: '2025-07-20', completed: true, status: 'completed' }
+  ]);
+  const [newTask, setNewTask] = useState('');
+  const [taskDate, setTaskDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    date: new Date().toISOString().split('T')[0],
+    type: 'event',
+    duration: ''
+  });
+  const [editingTask, setEditingTask] = useState(null);
+  const [taskStatus, setTaskStatus] = useState('pending');
+  
+  // Function to add a new task
+  const addTask = () => {
+    if (newTask.trim()) {
+      const task = {
+        id: Date.now(),
+        title: newTask.trim(),
+        date: taskDate,
+        completed: false,
+        status: taskStatus
+      };
+      setCalendarTasks([...calendarTasks, task]);
+      setNewTask('');
+      if (window.showToast) {
+        window.showToast('Task added successfully!', 'success');
+      }
+    }
+  };
+  
+  // Function to update task status
+  const updateTaskStatus = (taskId, newStatus) => {
+    setCalendarTasks(calendarTasks.map(task => 
+      task.id === taskId ? { ...task, status: newStatus } : task
+    ));
+    if (window.showToast) {
+      window.showToast('Task status updated!', 'success');
+    }
+  };
+  
+  // Function to delete a task
+  const deleteTask = (taskId) => {
+    setCalendarTasks(calendarTasks.filter(task => task.id !== taskId));
+    if (window.showToast) {
+      window.showToast('Task deleted!', 'success');
+    }
+  };
+  
+  // Function to edit a task
+  const startEditTask = (task) => {
+    setEditingTask(task);
+    setNewTask(task.title);
+    setTaskDate(task.date);
+    setTaskStatus(task.status);
+  };
+  
+  const saveEditTask = () => {
+    if (editingTask && newTask.trim()) {
+      setCalendarTasks(calendarTasks.map(task => 
+        task.id === editingTask.id 
+          ? { ...task, title: newTask.trim(), date: taskDate, status: taskStatus } 
+          : task
+      ));
+      setEditingTask(null);
+      setNewTask('');
+      if (window.showToast) {
+        window.showToast('Task updated!', 'success');
+      }
+    }
+  };
+  
+  // Function to cancel editing task
+  const cancelEditTask = () => {
+    setEditingTask(null);
+    setNewTask('');
+  };
+  
+  // Function to get tasks for a specific date
+  const getTasksForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return calendarTasks.filter(task => task.date === dateStr);
+  };
+  
+  // Function to get events for a specific date
+  const getEventsForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return events.filter(event => event.date === dateStr);
+  };
+  
+  // Function to add an event
+  const addEvent = () => {
+    if (newEvent.title.trim()) {
+      const eventToAdd = {
+        id: Date.now(),
+        title: newEvent.title.trim(),
+        date: newEvent.date,
+        type: newEvent.type,
+        duration: newEvent.duration
+      };
+      setEvents([...events, eventToAdd]);
+      setNewEvent({
+        title: '',
+        date: new Date().toISOString().split('T')[0],
+        type: 'event',
+        duration: ''
+      });
+      setShowEventModal(false);
+      if (window.showToast) {
+        window.showToast('Event added!', 'success');
+      }
+    }
+  };
+  
+  // Function to delete an event
+  const deleteEvent = (eventId) => {
+    setEvents(events.filter(event => event.id !== eventId));
+    if (window.showToast) {
+      window.showToast('Event deleted!', 'success');
+    }
+  };
+  
+  // Get status color for calendar tasks
+  const getStatusColor = (status) => {
+    const statusObj = TASK_STATUSES.find(s => s.key === status);
+    return statusObj ? statusObj.color : '#6b7280';
+  };
+  
+  return (
+    <div className="calendar-tab">
+      <div className="section-header">
+        <h2>Academic Calendar & Tasks</h2>
+      </div>
+      
+      <div className="calendar-full-view">
+        <div className="calendar-wrapper">
+          <Calendar
+            onChange={setSelectedDate}
+            value={selectedDate}
+            className="custom-calendar"
+            tileContent={({ date, view }) => {
+              if (view === 'month') {
+                const tasksOnDate = getTasksForDate(date);
+                if (tasksOnDate.length > 0) {
+                  return (
+                    <div className="calendar-tasks">
+                      {tasksOnDate.slice(0, 2).map(task => (
+                        <div 
+                          key={task.id} 
+                          className={`calendar-task-dot ${task.status}`}
+                          style={{ backgroundColor: getStatusColor(task.status) }}
+                        ></div>
+                      ))}
+                    </div>
+                  );
+                }
+              }
+              return null;
+            }}
+          />
+        </div>
+        
+        <div className="calendar-details">
+          <h3>
+            {selectedDate.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </h3>
+          
+          {/* Task Management Section */}
+          <div className="calendar-task-manager">
+            <h4>Tasks for this date</h4>
+            <div className="task-form">
+              <input
+                type="text"
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                placeholder="Add new task..."
+              />
+              <input
+                type="date"
+                value={taskDate}
+                onChange={(e) => setTaskDate(e.target.value)}
+              />
+              <select
+                value={taskStatus}
+                onChange={(e) => setTaskStatus(e.target.value)}
+              >
+                <option value="pending">Pending</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+              </select>
+              {editingTask ? (
+                <>
+                  <button onClick={saveEditTask}>Save</button>
+                  <button onClick={cancelEditTask}>Cancel</button>
+                </>
+              ) : (
+                <button onClick={addTask}>Add</button>
+              )}
+            </div>
+            
+            <div className="task-list">
+              {getTasksForDate(selectedDate).length > 0 ? (
+                getTasksForDate(selectedDate).map(task => (
+                  <div key={task.id} className={`task-item ${task.status}`}>
+                    <div className="task-content">
+                      <span>{task.title}</span>
+                      <div className="task-status-selector">
+                        <select
+                          value={task.status}
+                          onChange={(e) => updateTaskStatus(task.id, e.target.value)}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="ongoing">Ongoing</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="task-actions">
+                      <button onClick={() => startEditTask(task)}>Edit</button>
+                      <button onClick={() => deleteTask(task.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="no-tasks">No tasks for this date</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Events Section */}
+          <div className="calendar-events">
+            <h4>Events</h4>
+            <button 
+              onClick={() => setShowEventModal(true)} 
+              className="add-event-btn"
+            >
+              <FaPlus /> Add Event
+            </button>
+            
+            {getEventsForDate(selectedDate).length > 0 ? (
+              getEventsForDate(selectedDate).map(event => (
+                <div key={event.id} className="event-item">
+                  <div className="event-info">
+                    <p className="event-title">{event.title}</p>
+                    <p className="event-type">{event.type}</p>
+                    {event.duration && <p className="event-duration">{event.duration}</p>}
+                  </div>
+                  <div className="event-actions">
+                    <button
+                      onClick={() => deleteEvent(event.id)}
+                      className="event-action-btn delete"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="no-events">No events scheduled</p>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Event Modal */}
+      {showEventModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Add New Event</h3>
+              <button onClick={() => setShowEventModal(false)} className="close-btn">
+                <FaTimes />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Event Title</label>
+                <input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                  placeholder="Enter event title"
+                />
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  value={newEvent.date}
+                  onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Type</label>
+                <select
+                  value={newEvent.type}
+                  onChange={(e) => setNewEvent({...newEvent, type: e.target.value})}
+                >
+                  <option value="event">Event</option>
+                  <option value="exam">Exam</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="deadline">Deadline</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Duration (optional)</label>
+                <input
+                  type="text"
+                  value={newEvent.duration}
+                  onChange={(e) => setNewEvent({...newEvent, duration: e.target.value})}
+                  placeholder="e.g., 2 hours, 30 minutes"
+                />
+              </div>
+              <div className="modal-actions">
+                <button onClick={addEvent} className="primary-btn">
+                  Add Event
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// Enhanced Graph Component with Scoreboard
+const EnhancedGraph = ({ data, title }) => {
+  const [showScoreboard, setShowScoreboard] = useState(false);
+  
+  const scoreboardData = {
+    labels: data.labels,
+    datasets: [{
+      label: 'Scores',
+      data: data.datasets[0].data,
+      backgroundColor: [
+        'rgba(99, 102, 241, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)',
+      ],
+      borderWidth: 0,
+    }]
+  };
+  
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(0, 0, 0, 0.1)' },
+        ticks: { color: '#64748b' },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#64748b' },
+      },
+    },
+  };
+  
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          color: '#64748b',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+      },
+    },
+  };
+  
+  return (
+    <div className="enhanced-graph">
+      <div className="graph-header">
+        <h3>{title}</h3>
+        <button 
+          onClick={() => setShowScoreboard(!showScoreboard)}
+          className="toggle-scoreboard"
+        >
+          {showScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard'}
+        </button>
+      </div>
+      
+      <div className="graph-container">
+        <Bar data={data} options={chartOptions} />
+      </div>
+      
+      {showScoreboard && (
+        <div className="scoreboard-section">
+          <h4>Subject Scoreboard</h4>
+          <div className="scoreboard-chart">
+            <Doughnut data={scoreboardData} options={doughnutOptions} />
+          </div>
+          <div className="scoreboard-list">
+            {scoreboardData.labels.map((label, index) => (
+              <div key={index} className="scoreboard-item">
+                <span className="subject-name">{label}</span>
+                <span className="subject-score">{scoreboardData.datasets[0].data[index]}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+// Right Sidebar Component
+const RightSidebar = ({ files, resources, quizPerformanceData, doughnutOptions }) => {
+  return (
+    <div className="right-sidebar">
+      {/* Recent Files Section */}
+      <div className="sidebar-section">
+        <h3 className="sidebar-title">Recent Files</h3>
+        <div className="recent-files">
+          {files.slice(0, 5).map(file => (
+            <div key={file.id} className="recent-file">
+              <div className="file-icon">
+                {file.type.includes('image') ? <FaFileAlt /> :
+                 file.type.includes('pdf') ? <FaFilePdf /> :
+                 file.type.includes('word') ? <FaFileWord /> :
+                 file.type.includes('excel') ? <FaFileExcel /> :
+                 file.type.includes('powerpoint') ? <FaFilePowerpoint /> :
+                 file.type.includes('archive') ? <FaFileArchive /> :
+                 file.type.includes('audio') ? <FaFileAudio /> :
+                 file.type.includes('video') ? <FaFileVideo /> :
+                 file.type.includes('code') ? <FaFileCode /> :
+                 <FaFileAlt />}
+              </div>
+              <div className="file-info">
+                <p className="file-name">{file.name}</p>
+                <p className="file-size">{(file.size / 1024).toFixed(2)} KB</p>
+              </div>
+              <button
+                onClick={() => handlePreviewFile(file)}
+                className="file-action-btn"
+              >
+                View
+              </button>
+            </div>
+          ))}
+          
+          {files.length === 0 && (
+            <p className="no-files">No recent files</p>
+          )}
+        </div>
+      </div>
+      
+      {/* Quick Resources Section */}
+      <div className="sidebar-section">
+        <h3 className="sidebar-title">Quick Resources</h3>
+        <div className="quick-resources">
+          {resources.map((resource, index) => (
+            <div key={index} className="resource-item">
+              <div className="resource-icon">
+                <resource.icon />
+              </div>
+              <div className="resource-info">
+                <p className="resource-title">{resource.name}</p>
+                <p className="resource-count">{resource.count} items</p>
+              </div>
+              <button className="resource-action-btn">
+                <FaArrowRight />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Scoreboard with Graph */}
+      <div className="sidebar-section">
+        <h3 className="sidebar-title">Scoreboard</h3>
+        <div className="scoreboard">
+          <div className="scoreboard-chart">
+            <Doughnut data={quizPerformanceData} options={doughnutOptions} />
+          </div>
+          <div className="scoreboard-list">
+            {quizPerformanceData.labels.map((label, index) => (
+              <div key={index} className="scoreboard-item">
+                <span className="subject-name">{label}</span>
+                <span className="subject-score">{quizPerformanceData.datasets[0].data[index]}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Enhanced Assessment Results Component
+const AssessmentResults = ({ results, onRetake, onReview, onBack }) => {
+  const [showReview, setShowReview] = useState(false);
+  
+  // Determine performance level
+  const getPerformanceLevel = (percentage) => {
+    if (percentage >= 90) return { level: 'Excellent', color: '#10b981', icon: <FaTrophy /> };
+    if (percentage >= 80) return { level: 'Good', color: '#3b82f6', icon: <FaStar /> };
+    if (percentage >= 70) return { level: 'Satisfactory', color: '#f59e0b', icon: <FaRegStar /> };
+    if (percentage >= 60) return { level: 'Needs Improvement', color: '#ef4444', icon: <FaExclamationTriangle /> };
+    return { level: 'Poor', color: '#ef4444', icon: <FaTimesCircle /> };
+  };
+  
+  const performance = getPerformanceLevel(results.percentage);
+  
+  // Calculate subject-wise performance
+  const subjectPerformance = results.answers.reduce((acc, answer, index) => {
+    const subject = results.subjects[index];
+    if (!acc[subject]) {
+      acc[subject] = { correct: 0, total: 0 };
+    }
+    acc[subject].total++;
+    if (answer.isCorrect) {
+      acc[subject].correct++;
+    }
+    return acc;
+  }, {});
+  
+  // Calculate subject percentages
+  const subjectPercentages = Object.entries(subjectPerformance).map(([subject, data]) => ({
+    subject,
+    percentage: Math.round((data.correct / data.total) * 100)
+  }));
+  
+  // Chart data for subject performance
+  const subjectChartData = {
+    labels: subjectPercentages.map(item => item.subject),
+    datasets: [{
+      label: 'Subject Performance',
+      data: subjectPercentages.map(item => item.percentage),
+      backgroundColor: [
+        'rgba(99, 102, 241, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)',
+        'rgba(139, 92, 246, 0.8)'
+      ],
+      borderWidth: 0,
+    }]
+  };
+  
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        grid: { color: 'rgba(0, 0, 0, 0.1)' },
+        ticks: { color: '#64748b' },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#64748b' },
+      },
+    },
+  };
+  
+  return (
+    <div className="assessment-results">
+      <div className="results-header">
+        <h2>Assessment Results</h2>
+        <div className="performance-indicator" style={{ backgroundColor: performance.color }}>
+          {performance.icon}
+          <span>{performance.level}</span>
+        </div>
+      </div>
+      
+      <div className="score-display">
+        <div className="score-circle">
+          <span className="score-value">{results.score}</span>
+          <span className="score-total">/{results.total}</span>
+        </div>
+        <div className="score-percentage">
+          <span>{results.percentage}%</span>
+        </div>
+      </div>
+      
+      <div className="results-actions">
+        <button onClick={() => setShowReview(!showReview)} className="secondary-btn">
+          {showReview ? 'Hide Review' : 'Review Answers'}
+        </button>
+        <button onClick={onRetake} className="secondary-btn">
+          Retake Assessment
+        </button>
+        <button onClick={onBack} className="primary-btn">
+          Back to Assessments
+        </button>
+      </div>
+      
+      {showReview && (
+        <div className="answers-review">
+          <h3>Answer Review</h3>
+          <div className="answers-list">
+            {results.answers.map((answer, index) => (
+              <div key={index} className={`answer-item ${answer.isCorrect ? 'correct' : 'incorrect'}`}>
+                <div className="answer-header">
+                  <span className="question-number">Question {index + 1}</span>
+                  <span className={`answer-status ${answer.isCorrect ? 'correct' : 'incorrect'}`}>
+                    {answer.isCorrect ? 'Correct' : 'Incorrect'}
+                  </span>
+                </div>
+                <p className="question-text">{answer.question}</p>
+                <div className="answer-options">
+                  {answer.options.map((option, optIndex) => (
+                    <div 
+                      key={optIndex} 
+                      className={`option ${optIndex === answer.answer ? 'correct-option' : ''} ${optIndex === answer.userAnswer && !answer.isCorrect ? 'wrong-option' : ''}`}
+                    >
+                      {option}
+                    </div>
+                  ))}
+                </div>
+                {!answer.isCorrect && (
+                  <div className="correct-answer">
+                    <span>Correct Answer: {answer.options[answer.answer]}</span>
+                  </div>
+                )}
+                <div className="explanation">
+                  <span>Explanation: {answer.explanation}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      <div className="subject-performance">
+        <h3>Subject-wise Performance</h3>
+        <div className="chart-container">
+          <Bar data={subjectChartData} options={chartOptions} />
+        </div>
+        <div className="subject-list">
+          {subjectPercentages.map((item, index) => (
+            <div key={index} className="subject-item">
+              <span className="subject-name">{item.subject}</span>
+              <div className="subject-bar">
+                <div 
+                  className="subject-fill" 
+                  style={{ 
+                    width: `${item.percentage}%`,
+                    backgroundColor: subjectChartData.datasets[0].backgroundColor[index]
+                  }}
+                ></div>
+              </div>
+              <span className="subject-percentage">{item.percentage}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="recommendations">
+        <h3>Recommendations</h3>
+        <div className="recommendations-list">
+          {results.percentage >= 90 ? (
+            <div className="recommendation-item">
+              <FaTrophy className="recommendation-icon" />
+              <div className="recommendation-content">
+                <h4>Excellent Performance!</h4>
+                <p>You've demonstrated a strong understanding of the material. Consider exploring advanced topics or helping peers who are struggling.</p>
+              </div>
+            </div>
+          ) : results.percentage >= 80 ? (
+            <div className="recommendation-item">
+              <FaStar className="recommendation-icon" />
+              <div className="recommendation-content">
+                <h4>Good Job!</h4>
+                <p>You have a solid grasp of the material. Review the questions you missed to strengthen your knowledge further.</p>
+              </div>
+            </div>
+          ) : results.percentage >= 70 ? (
+            <div className="recommendation-item">
+              <FaRegStar className="recommendation-icon" />
+              <div className="recommendation-content">
+                <h4>Satisfactory Performance</h4>
+                <p>You're on the right track, but there's room for improvement. Focus on the areas where you struggled and consider additional study materials.</p>
+              </div>
+            </div>
+          ) : results.percentage >= 60 ? (
+            <div className="recommendation-item">
+              <FaExclamationTriangle className="recommendation-icon" />
+              <div className="recommendation-content">
+                <h4>Needs Improvement</h4>
+                <p>You should review the material more thoroughly. Consider seeking additional help or using different learning resources.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="recommendation-item">
+              <FaTimesCircle className="recommendation-icon" />
+              <div className="recommendation-content">
+                <h4>Significant Improvement Needed</h4>
+                <p>You should revisit the fundamentals of this subject. Consider speaking with your instructor or finding a study group.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+// Main Dashboard Component
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const toast = useToast();
+  
+  // Initialize API key from localStorage
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem('ai_api_key');
+    if (savedApiKey) {
+      AIService.setApiKey(savedApiKey);
+    }
+  }, []);
+  
+  // State declarations
+  const [darkMode, setDarkMode] = useState(false);
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingTask, setEditingTask] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  
+  const [tasks, setTasks] = useState(() =>
+    TASK_STATUSES.reduce((acc, status) => {
+      acc[status.key] = [];
+      return acc;
+    }, {})
+  );
+  
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Folder/File Management States
+  const [folders, setFolders] = useState([
+    { id: 1, name: 'Mathematics', parentId: null, childrenCount: 0, color: '#3b82f6' },
+    { id: 2, name: 'Science', parentId: null, childrenCount: 0, color: '#10b981' },
+    { id: 3, name: 'History', parentId: null, childrenCount: 0, color: '#6366f1' }
+  ]);
+  
+  const [files, setFiles] = useState([]);
+  const [currentFolder, setCurrentFolder] = useState(null);
+  
+  // Calendar Task States
+  const [calendarTasks, setCalendarTasks] = useState([
+    { id: 1, title: 'Complete math assignment', date: '2025-07-15', completed: false, status: 'pending' },
+    { id: 2, title: 'Study for physics exam', date: '2025-07-18', completed: false, status: 'ongoing' },
+    { id: 3, title: 'Read chapter 5', date: '2025-07-20', completed: true, status: 'completed' }
+  ]);
+  
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [myFiles, setMyFiles] = useState([]);
+  
+  // Enhanced Assessment States
+  const [assessmentSubjects] = useState(ASSESSMENT_SUBJECTS);
+  const [selectedAssessmentSubject, setSelectedAssessmentSubject] = useState(null);
+  const [quizQuestions, setQuizQuestions] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [score, setScore] = useState(0);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizResults, setQuizResults] = useState(null);
+  const [quizTimer, setQuizTimer] = useState(0);
+  const [quizTimerActive, setQuizTimerActive] = useState(false);
+  const [userAnswers, setUserAnswers] = useState([]);
+  
+  const [importantQuestions, setImportantQuestions] = useState([
+    { id: 1, question: "Explain Newton's laws of motion", subject: "Physics", starred: true, difficulty: 'Medium' },
+    { id: 2, question: "What is the significance of the Industrial Revolution?", subject: "History", starred: false, difficulty: 'Easy' }
+  ]);
+  
+  const [stickyNotes, setStickyNotes] = useState([
+    { id: 1, content: "Review calculus chapter 3", color: "#fef3c7", category: 'Mathematics', createdAt: new Date() },
+    { id: 2, content: "Prepare for physics lab", color: "#dbeafe", category: 'Physics', createdAt: new Date() }
+  ]);
+  
+  const [newNote, setNewNote] = useState('');
+  const [noteColor, setNoteColor] = useState("#fef3c7");
+  const [noteCategory, setNoteCategory] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteContent, setEditingNoteContent] = useState('');
+  
+  const [voiceCommand, setVoiceCommand] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [userProfile, setUserProfile] = useState({
+    name: "Achu",
+    email: "achu123@gmail.com",
+    studentId: "2024001",
+    role: "Student",
+    profilePic: null,
+    testScores: [
+      { subject: 'Mathematics', score: 85, date: '2025-07-10' },
+      { subject: 'Physics', score: 78, date: '2025-07-12' },
+      { subject: 'Chemistry', score: 92, date: '2025-07-15' }
+    ],
+    studyInterests: {
+      Mathematics: 4,
+      Physics: 3,
+      Chemistry: 5,
+      Biology: 2,
+      English: 4,
+      History: 3,
+      Geography: 2,
+      ComputerScience: 5
+    },
+    loginDetails: {
+      lastLogin: new Date().toISOString(),
+      loginCount: 5,
+      sessions: [
+        { date: '2025-07-10', duration: '45 min' },
+        { date: '2025-07-09', duration: '1h 20min' },
+        { date: '2025-07-08', duration: '30 min' }
+      ]
+    }
+  });
+  
+  const [activeSubject, setActiveSubject] = useState('all');
+  const [sortOrder, setSortOrder] = useState('newest');
+  
+  const [studyRooms, setStudyRooms] = useState([
+    { id: 1, name: 'Mathematics Study Group', members: 5, status: 'active', nextMeeting: 'Today, 4:00 PM' },
+    { id: 2, name: 'Physics Project Team', members: 3, status: 'scheduled', nextMeeting: 'Tomorrow, 2:00 PM' },
+    { id: 3, name: 'Literature Discussion', members: 7, status: 'active', nextMeeting: 'Friday, 5:00 PM' }
+  ]);
+  
+  const [newRoomName, setNewRoomName] = useState('');
+  const [selectedTool, setSelectedTool] = useState('video');
+  
+  const [collaborationTools] = useState([
+    { id: 'video', name: 'Video Chat', icon: FaVideo, description: 'Real-time video conferencing with screen sharing' },
+    { id: 'whiteboard', name: 'Shared Whiteboard', icon: FaChalkboardTeacher, description: 'Collaborative canvas for diagrams and notes' },
+    { id: 'files', name: 'File Sharing', icon: FaFileUpload, description: 'Share documents and resources with your group' },
+    { id: 'code', name: 'Code Editor', icon: FaCode, description: 'Collaborative coding environment' }
+  ]);
+  
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'New message in Math Group', description: 'Sarah: Can anyone help with problem 5?', time: '10 min ago', read: false },
+    { id: 2, title: 'Quiz available', description: 'New calculus quiz is now available', time: '1 hour ago', read: false },
+    { id: 3, title: 'Study session reminder', description: 'Physics study session starts in 30 minutes', time: '2 hours ago', read: true }
+  ]);
+  
+  const [settings, setSettings] = useState({
+    darkMode: false,
+    notifications: true,
+    voiceCommands: true,
+    autoSave: true,
+    studyReminders: true,
+    apiKey: ''
+  });
+  
+  // New states for document analysis and AI integration
+  const [analyzedTopics, setAnalyzedTopics] = useState([]);
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [showTopicOptions, setShowTopicOptions] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [quizMarks, setQuizMarks] = useState(null);
+  const [showQuizMarksModal, setShowQuizMarksModal] = useState(false);
+  const [studyMaterialType, setStudyMaterialType] = useState('simple');
+  const [showStudyMaterialModal, setShowStudyMaterialModal] = useState(false);
+  const [generatedStudyMaterial, setGeneratedStudyMaterial] = useState('');
+  const [generatedQuestions, setGeneratedQuestions] = useState([]);
+  const [showQuestionsModal, setShowQuestionsModal] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(false);
+  
+  // Timer and Stopwatch states
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+  const [timerMinutes, setTimerMinutes] = useState(0);
+  const [timerSecondsInput, setTimerSecondsInput] = useState(0);
+  const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
+  const [stopwatchActive, setStopwatchActive] = useState(false);
+  const [lapTimes, setLapTimes] = useState([]);
+  
+  // File management states
+  const [filePreview, setFilePreview] = useState(null);
+  const [showFilePreview, setShowFilePreview] = useState(false);
+  
+  // Math Tools states
+  const [squareCubeRange, setSquareCubeRange] = useState(10);
+  const [squareCubeResults, setSquareCubeResults] = useState([]);
+  const [tableNumber, setTableNumber] = useState(5);
+  const [tableRange, setTableRange] = useState(10);
+  const [tableResults, setTableResults] = useState([]);
+  
+  // Calendar states
+  const [events, setEvents] = useState([
+    ...MOCK_EXAMS.map(exam => ({
+      id: exam.id,
+      title: `${exam.subject} - ${exam.type}`,
+      date: exam.date,
+      type: 'exam',
+      duration: exam.duration
+    })),
+    { id: 4, title: 'Study Group Meeting', date: '2025-07-18', type: 'meeting', duration: '1 hour' },
+    { id: 5, title: 'Project Deadline', date: '2025-07-22', type: 'deadline', duration: '' }
+  ]);
+  
+  // Voice recognition hook
+  const { isListening, startListening } = useVoiceRecognition((transcript) => {
+    setVoiceCommand(transcript);
+    processVoiceCommand(transcript);
+  });
+  
+  // Process voice commands
+  const processVoiceCommand = (command) => {
+    const lowerCommand = command.toLowerCase();
+    
+    if (lowerCommand.includes('dashboard')) {
+      setActiveTab('dashboard');
+      toast('Command recognized: Go to Dashboard', 'success');
+    } else if (lowerCommand.includes('materials')) {
+      setActiveTab('materials');
+      toast('Command recognized: Go to Study Materials', 'success');
+    } else if (lowerCommand.includes('quiz') || lowerCommand.includes('assessment')) {
+      setActiveTab('quiz');
+      toast('Command recognized: Go to Assessments', 'success');
+    } else if (lowerCommand.includes('notes')) {
+      setActiveTab('notes');
+      toast('Command recognized: Go to Notes', 'success');
+    } else if (lowerCommand.includes('calendar')) {
+      setActiveTab('calendar');
+      toast('Command recognized: Go to Calendar', 'success');
+    } else if (lowerCommand.includes('collaboration')) {
+      setActiveTab('collaboration');
+      toast('Command recognized: Go to Collaboration', 'success');
+    } else if (lowerCommand.includes('timer')) {
+      setActiveTab('timer');
+      toast('Command recognized: Go to Timer', 'success');
+    } else if (lowerCommand.includes('math tools')) {
+      setActiveTab('math-tools');
+      toast('Command recognized: Go to Math Tools', 'success');
+    } else if (lowerCommand.includes('code editor')) {
+      setActiveTab('code-editor');
+      toast('Command recognized: Go to Code Editor', 'success');
+    } else if (lowerCommand.includes('ai content')) {
+      setActiveTab('ai-content');
+      toast('Command recognized: Go to AI Content', 'success');
+    } else if (lowerCommand.includes('achievements')) {
+      setActiveTab('achievements');
+      toast('Command recognized: Go to Achievements', 'success');
+    } else if (lowerCommand.includes('resources')) {
+      setActiveTab('resources');
+      toast('Command recognized: Go to Resources', 'success');
+    } else if (lowerCommand.includes('settings')) {
+      setActiveTab('settings');
+      toast('Command recognized: Go to Settings', 'success');
+    } else if (lowerCommand.includes('logout')) {
+      handleLogout();
+      toast('Command recognized: Logout', 'success');
+    } else if (lowerCommand.includes('create folder')) {
+      const folderName = prompt('Enter folder name:');
+      if (folderName?.trim()) {
+        handleCreateFolder(folderName.trim());
+        toast('Command recognized: Create a new folder', 'success');
+      }
+    } else if (lowerCommand.includes('new note')) {
+      const noteContent = prompt('Enter note content:');
+      if (noteContent?.trim()) {
+        addStickyNote(noteContent.trim());
+        toast('Command recognized: Create a new note', 'success');
+      }
+    } else if (lowerCommand.includes('start quiz') || lowerCommand.includes('start assessment')) {
+      setActiveTab('quiz');
+      toast('Command recognized: Go to Assessments', 'success');
+    } else if (lowerCommand.includes('dark mode')) {
+      setDarkMode(true);
+      setSettings(prev => ({ ...prev, darkMode: true }));
+      toast('Command recognized: Enable dark mode', 'success');
+    } else if (lowerCommand.includes('light mode')) {
+      setDarkMode(false);
+      setSettings(prev => ({ ...prev, darkMode: false }));
+      toast('Command recognized: Enable light mode', 'success');
+    } else {
+      toast('Command not recognized. Try saying "help" for available commands.', 'info');
+    }
+  };
+  
+  // Toggle theme
+  const toggleTheme = useCallback(() => {
+    setDarkMode(prev => {
+      const newMode = !prev;
+      setSettings(prevSettings => ({ ...prevSettings, darkMode: newMode }));
+      return newMode;
+    });
+  }, []);
+  
+  // Toggle user popup
+  const toggleUserPopup = useCallback(() => {
+    setShowUserDetails(prev => !prev);
+    setShowNotifications(false);
+  }, []);
+  
+  // Toggle notifications
+  const toggleNotifications = useCallback(() => {
+    setShowNotifications(prev => !prev);
+    setShowUserDetails(false);
+  }, []);
+  
+  // Close popups
+  const closePopups = useCallback(() => {
+    setShowUserDetails(false);
+    setShowNotifications(false);
+  }, []);
+  
+  // Add task
+  const addTask = useCallback((status, dueDate = null) => {
+    const taskTitle = prompt(`Enter task for ${TASK_STATUSES.find(s => s.key === status)?.label}:`);
+    if (taskTitle?.trim()) {
+      const newTask = {
+        id: Date.now(),
+        title: taskTitle.trim(),
+        description: '',
+        priority: 'medium',
+        createdAt: new Date(),
+        dueDate: dueDate || new Date().toISOString().split('T')[0],
+      };
+      setTasks(prev => ({
+        ...prev,
+        [status]: [...prev[status], newTask],
+      }));
+      toast('Task added successfully!', 'success');
+    }
+  }, [toast]);
+  
+  // Move task
+  const moveTask = useCallback((fromStatus, toStatus, taskIndex) => {
+    setTasks(prev => {
+      const task = prev[fromStatus][taskIndex];
+      const updatedFrom = prev[fromStatus].filter((_, i) => i !== taskIndex);
+      return {
+        ...prev,
+        [fromStatus]: updatedFrom,
+        [toStatus]: [...prev[toStatus], { ...task, updatedAt: new Date() }],
+      };
+    });
+    toast('Task moved successfully!', 'success');
+  }, [toast]);
+  
+  // Delete task
+  const deleteTask = useCallback((status, taskIndex) => {
+    if (window.confirm('Are you sure you want to delete this task?')) {
+      setTasks(prev => ({
+        ...prev,
+        [status]: prev[status].filter((_, i) => i !== taskIndex),
+      }));
+      toast('Task deleted successfully!', 'success');
+    }
+  }, [toast]);
+  
+  // Start editing task
+  const startEditTask = useCallback((status, taskIndex, currentTitle) => {
+    setEditingTask({ status, index: taskIndex });
+    setEditingText(currentTitle);
+  }, []);
+  
+  // Save edited task
+  const saveEditTask = useCallback(() => {
+    if (editingTask && editingText.trim()) {
+      setTasks(prev => {
+        const updatedTasks = [...prev[editingTask.status]];
+        updatedTasks[editingTask.index] = {
+          ...updatedTasks[editingTask.index],
+          title: editingText.trim(),
+          updatedAt: new Date(),
+        };
+        return {
+          ...prev,
+          [editingTask.status]: updatedTasks,
+        };
+      });
+      toast('Task updated successfully!', 'success');
+    }
+    setEditingTask(null);
+    setEditingText('');
+  }, [editingTask, editingText, toast]);
+  
+  // Cancel editing task
+  const cancelEditTask = useCallback(() => {
+    setEditingTask(null);
+    setEditingText('');
+  }, []);
+  
+  // Folder/File Management Functions
+  const handleCreateFolder = (name, parentId) => {
+    if (name.trim()) {
+      const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+      const newFolder = {
+        id: Date.now(),
+        name: name.trim(),
+        parentId,
+        childrenCount: 0,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      };
+      setFolders(prev => [...prev, newFolder]);
+      
+      // Update parent folder's children count
+      if (parentId) {
+        setFolders(prev => 
+          prev.map(folder => 
+            folder.id === parentId 
+              ? { ...folder, childrenCount: (folder.childrenCount || 0) + 1 } 
+              : folder
+          )
+        );
+      }
+      
+      toast('Folder created successfully!', 'success');
+    }
+  };
+  
+  const handleCreateFile = (name, folderId) => {
+    if (name.trim()) {
+      const newFile = {
+        id: Date.now(),
+        name: name.trim(),
+        type: 'text/plain',
+        size: 0,
+        folderId,
+        uploadDate: new Date(),
+        content: ''
+      };
+      setFiles(prev => [...prev, newFile]);
+      
+      // Update folder's children count
+      if (folderId) {
+        setFolders(prev => 
+          prev.map(folder => 
+            folder.id === folderId 
+              ? { ...folder, childrenCount: (folder.childrenCount || 0) + 1 } 
+              : folder
+          )
+        );
+      }
+      
+      toast('File created successfully!', 'success');
+    }
+  };
+  
+  const handleUploadFiles = (files, folderId) => {
+    if (files.length > 0) {
+      const newFiles = Array.from(files).map(file => ({
+        id: Date.now() + Math.random(),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        folderId,
+        uploadDate: new Date(),
+        url: URL.createObjectURL(file),
+        file: file
+      }));
+      
+      setFiles(prev => [...prev, ...newFiles]);
+      
+      // Update folder's children count
+      if (folderId) {
+        setFolders(prev => 
+          prev.map(folder => 
+            folder.id === folderId 
+              ? { ...folder, childrenCount: (folder.childrenCount || 0) + files.length } 
+              : folder
+          )
+        );
+      }
+      
+      toast(`${files.length} file(s) uploaded successfully!`, 'success');
+    }
+  };
+  
+  const handleDeleteItem = (type, id) => {
+    if (window.confirm(`Are you sure you want to delete this ${type}?`)) {
+      if (type === 'folder') {
+        const folder = folders.find(f => f.id === id);
+        
+        // Delete all files in this folder
+        setFiles(prev => prev.filter(file => file.folderId !== id));
+        
+        // Delete all subfolders
+        setFolders(prev => prev.filter(f => f.parentId !== id));
+        
+        // Delete the folder
+        setFolders(prev => prev.filter(f => f.id !== id));
+        
+        // Update parent folder's children count
+        if (folder.parentId) {
+          setFolders(prev => 
+            prev.map(f => 
+              f.id === folder.parentId 
+                ? { ...f, childrenCount: Math.max(0, (f.childrenCount || 0) - 1) } 
+                : f
+            )
+          );
+        }
+        
+        toast('Folder deleted successfully!', 'success');
+      } else if (type === 'file') {
+        const file = files.find(f => f.id === id);
+        
+        // Delete the file
+        setFiles(prev => prev.filter(f => f.id !== id));
+        
+        // Update folder's children count
+        if (file.folderId) {
+          setFolders(prev => 
+            prev.map(f => 
+              f.id === file.folderId 
+                ? { ...f, childrenCount: Math.max(0, (f.childrenCount || 0) - 1) } 
+                : f
+            )
+          );
+        }
+        
+        toast('File deleted successfully!', 'success');
+      }
+    }
+  };
+  
+  const handleDownloadFile = (file) => {
+    const link = document.createElement('a');
+    link.href = file.url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast(`Downloading ${file.name}...`, 'info');
+  };
+  
+  const handlePreviewFile = (file) => {
+    setFilePreview(file);
+    setShowFilePreview(true);
+  };
+  
+  // Function to update file content
+  const handleUpdateFile = (updatedFile) => {
+    setFiles(prev => prev.map(file => 
+      file.id === updatedFile.id ? updatedFile : file
+    ));
+  };
+  
+  // Calendar Task Management Functions
+  const addCalendarTask = (task) => {
+    setCalendarTasks(prev => [...prev, task]);
+    toast('Task added to calendar!', 'success');
+  };
+  
+  const deleteCalendarTask = (id) => {
+    setCalendarTasks(prev => prev.filter(task => task.id !== id));
+    toast('Task deleted from calendar!', 'success');
+  };
+  
+  const toggleCalendarTaskCompletion = (id) => {
+    setCalendarTasks(prev => 
+      prev.map(task => 
+        task.id === id ? { ...task, completed: !task.completed } : task
+      )
+    );
+  };
+  
+  // Handle file upload and analyze document
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (files.length > 0) {
+      setIsAnalyzing(true);
+      
+      try {
+        const newFiles = Array.from(files).map(file => ({
+          id: Date.now() + Math.random(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          uploadDate: new Date(),
+          topics: [], // Will be populated after analysis
+          file: file,
+          url: URL.createObjectURL(file),
+          folderId: currentFolder
+        }));
+        
+        setUploadedFiles(prev => [...prev, ...newFiles]);
+        setMyFiles(prev => [...prev, ...newFiles]);
+        
+        // Update folder file count if uploaded to a folder
+        if (currentFolder) {
+          setFolders(prev => prev.map(folder =>
+            folder.id === currentFolder
+              ? { ...folder, files: (folder.files || 0) + files.length }
+              : folder
+          ));
+        }
+        
+        // Analyze the first uploaded file for topics
+        if (files.length > 0) {
+          const topics = await AIService.analyzeDocument(files[0]);
+          
+          // Update the file with extracted topics
+          setUploadedFiles(prev => prev.map(file => 
+            file.id === newFiles[0].id ? { ...file, topics } : file
+          ));
+          
+          setMyFiles(prev => prev.map(file => 
+            file.id === newFiles[0].id ? { ...file, topics } : file
+          ));
+          
+          setAnalyzedTopics(topics);
+          toast(`${files.length} file(s) uploaded and analyzed!`, 'success');
+        }
+      } catch (error) {
+        toast(error.message, 'error');
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }
+  };
+  
+  // Handle topic click
+  const handleTopicClick = (topic) => {
+    setSelectedTopic(topic);
+    setShowTopicOptions(true);
+  };
+  
+  // Handle topic option selection
+  const handleTopicOptionSelect = (option) => {
+    setShowTopicOptions(false);
+    switch (option) {
+      case 'quiz':
+        setShowQuizMarksModal(true);
+        break;
+      case 'study':
+        setShowStudyMaterialModal(true);
+        break;
+      case 'questions':
+        generateImportantQuestions(selectedTopic);
+        break;
+      case 'notes':
+        generateStickyNotes(selectedTopic);
+        break;
+      default:
+        break;
+    }
+  };
+  
+  // Enhanced Assessment Functions
+  const startAssessment = (subjectId, questionCount = 10) => {
+    const subject = assessmentSubjects.find(s => s.id === subjectId);
+    if (subject) {
+      // Select questions based on difficulty distribution and question count
+      const easyCount = Math.floor(questionCount * (subject.difficultyDistribution.easy / subject.questionCount));
+      const mediumCount = Math.floor(questionCount * (subject.difficultyDistribution.medium / subject.questionCount));
+      const hardCount = questionCount - easyCount - mediumCount;
+      
+      const easyQuestions = subject.questions.filter(q => q.difficulty === 'easy').slice(0, easyCount);
+      const mediumQuestions = subject.questions.filter(q => q.difficulty === 'medium').slice(0, mediumCount);
+      const hardQuestions = subject.questions.filter(q => q.difficulty === 'hard').slice(0, hardCount);
+      
+      const selectedQuestions = [...easyQuestions, ...mediumQuestions, ...hardQuestions]
+        .sort(() => Math.random() - 0.5) // Shuffle the questions
+        .slice(0, questionCount);
+      
+      setSelectedAssessmentSubject(subject);
+      setQuizQuestions(selectedQuestions);
+      setCurrentQuestion(0);
+      setScore(0);
+      setUserAnswers([]);
+      setShowQuiz(true);
+      setQuizResults(null);
+      setShowAnswers(false);
+      setQuizTimerActive(true);
+      
+      // Set timer based on quiz length (1 minute per question)
+      const timerDuration = selectedQuestions.length * 60; // seconds
+      setQuizTimer(timerDuration);
+    }
+  };
+  
+  // Answer question in assessment
+  const answerQuestion = (answerIndex) => {
+    // Record user answer
+    const newUserAnswers = [...userAnswers];
+    newUserAnswers[currentQuestion] = answerIndex;
+    setUserAnswers(newUserAnswers);
+    
+    const isCorrect = answerIndex === quizQuestions[currentQuestion].answer;
+    if (isCorrect) {
+      setScore(prev => prev + 1);
+    }
+    
+    if (currentQuestion < quizQuestions.length - 1) {
+      setCurrentQuestion(prev => prev + 1);
+    } else {
+      // Quiz completed
+      const finalScore = score + (isCorrect ? 1 : 0);
+      const percentage = Math.round((finalScore / quizQuestions.length) * 100);
+      
+      // Prepare results with subjects
+      const results = {
+        score: finalScore,
+        total: quizQuestions.length,
+        percentage: percentage,
+        subjects: quizQuestions.map(q => selectedAssessmentSubject.name),
+        answers: quizQuestions.map((q, i) => ({
+          ...q,
+          userAnswer: newUserAnswers[i],
+          isCorrect: newUserAnswers[i] === q.answer
+        }))
+      };
+      
+      setQuizResults(results);
+      setShowQuiz(false);
+      setQuizTimerActive(false);
+      
+      // Save test score to user profile
+      const newScore = {
+        subject: selectedAssessmentSubject.name,
+        score: percentage,
+        date: new Date().toISOString().split('T')[0]
+      };
+      setUserProfile(prev => ({
+        ...prev,
+        testScores: [...prev.testScores, newScore]
+      }));
+      
+      // Unlock achievements based on score
+      if (percentage === 100) {
+        // Unlock "Perfect Score" achievement
+        setAchievements(prev => 
+          prev.map(achievement => 
+            achievement.id === 3 ? { ...achievement, unlocked: true } : achievement
+          )
+        );
+        toast('Achievement Unlocked: Perfect Score!', 'success');
+      }
+      
+      if (percentage >= 90) {
+        toast(`Excellent! You scored ${percentage}%!`, 'success');
+      } else if (percentage >= 80) {
+        toast(`Good job! You scored ${percentage}%. Keep practicing!`, 'info');
+      } else if (percentage >= 70) {
+        toast(`Satisfactory! You scored ${percentage}%.`, 'info');
+      } else if (percentage >= 60) {
+        toast(`You scored ${percentage}%. Review the material and try again.`, 'warning');
+      } else {
+        toast(`You scored ${percentage}%. More practice needed.`, 'warning');
+      }
+    }
+  };
+  
+  // Generate quiz questions based on marks
+  const generateQuizQuestions = (topic, marks) => {
+    // Simulate AI-powered quiz generation
+    const questions = [];
+    const numQuestions = marks; // One question per mark
+    
+    // AI-generated questions based on topic
+    for (let i = 0; i < numQuestions; i++) {
+      let question, options, answer, explanation;
+      
+      if (topic.includes('Math') || topic.includes('Algebra') || topic.includes('Calculus')) {
+        question = `Mathematical Question ${i + 1} about ${topic}`;
+        options = ['Option A', 'Option B', 'Option C', 'Option D'];
+        answer = Math.floor(Math.random() * 4);
+        explanation = `Mathematical explanation for question ${i + 1} about ${topic}`;
+      } else if (topic.includes('Science') || topic.includes('Physics') || topic.includes('Chemistry')) {
+        question = `Scientific Question ${i + 1} about ${topic}`;
+        options = ['Option A', 'Option B', 'Option C', 'Option D'];
+        answer = Math.floor(Math.random() * 4);
+        explanation = `Scientific explanation for question ${i + 1} about ${topic}`;
+      } else if (topic.includes('History') || topic.includes('Civilization') || topic.includes('War')) {
+        question = `Historical Question ${i + 1} about ${topic}`;
+        options = ['Option A', 'Option B', 'Option C', 'Option D'];
+        answer = Math.floor(Math.random() * 4);
+        explanation = `Historical explanation for question ${i + 1} about ${topic}`;
+      } else if (topic.includes('English') || topic.includes('Literature') || topic.includes('Poetry')) {
+        question = `Literary Question ${i + 1} about ${topic}`;
+        options = ['Option A', 'Option B', 'Option C', 'Option D'];
+        answer = Math.floor(Math.random() * 4);
+        explanation = `Literary explanation for question ${i + 1} about ${topic}`;
+      } else if (topic.includes('Computer') || topic.includes('Programming') || topic.includes('Code')) {
+        question = `Programming Question ${i + 1} about ${topic}`;
+        options = ['Option A', 'Option B', 'Option C', 'Option D'];
+        answer = Math.floor(Math.random() * 4);
+        explanation = `Programming explanation for question ${i + 1} about ${topic}`;
+      } else {
+        question = `General Question ${i + 1} about ${topic}`;
+        options = ['Option A', 'Option B', 'Option C', 'Option D'];
+        answer = Math.floor(Math.random() * 4);
+        explanation = `General explanation for question ${i + 1} about ${topic}`;
+      }
+      
+      questions.push({
+        id: i + 1,
+        question,
+        options,
+        answer,
+        explanation
+      });
+    }
+    
+    setQuizQuestions(questions);
+    startQuiz();
+    setShowQuizMarksModal(false);
+  };
+  
+  // Start quiz with timer
+  const startQuiz = () => {
+    setShowQuiz(true);
+    setCurrentQuestion(0);
+    setScore(0);
+    setQuizResults(null);
+    setShowAnswers(false);
+    setQuizTimerActive(true);
+    
+    // Set timer based on quiz marks (1 minute per mark)
+    const timerDuration = quizQuestions.length * 60; // seconds
+    setQuizTimer(timerDuration);
+  };
+  
+  // Generate study material using AI
+  const generateStudyMaterial = async (topic, type) => {
+    try {
+      setIsAnalyzing(true);
+      const content = await AIService.generateContent(topic, 'study');
+      setGeneratedStudyMaterial(content);
+      setShowStudyMaterialModal(false);
+      toast('Study material generated successfully!', 'success');
+    } catch (error) {
+      toast(error.message, 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+  
+  // Generate important questions using AI
+  const generateImportantQuestions = async (topic) => {
+    try {
+      setIsAnalyzing(true);
+      const content = await AIService.generateContent(topic, 'questions');
+      
+      // Parse the generated content into questions
+      const questions = content.split('\n')
+        .filter(line => line.trim().startsWith(`${parseInt(line.split('.')[0])}.`))
+        .map((line, index) => ({
+          id: index + 1,
+          question: line.replace(/^\d+\.\s*/, ''),
+          subject: topic,
+          difficulty: ['Easy', 'Medium', 'Hard'][Math.floor(Math.random() * 3)],
+          starred: false
+        }));
+      
+      setGeneratedQuestions(questions);
+      setShowQuestionsModal(true);
+      toast('Important questions generated successfully!', 'success');
+    } catch (error) {
+      toast(error.message, 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+  
+  // Generate sticky notes using AI
+  const generateStickyNotes = async (topic) => {
+    try {
+      setIsAnalyzing(true);
+      const content = await AIService.generateContent(topic, 'notes');
+      
+      // Parse the generated content into notes
+      const notes = [];
+      const colors = ["#fef3c7", "#dbeafe", "#ede9fe", "#fce7f3", "#dcfce7"];
+      
+      // Extract key points from the content
+      const keyPoints = content.split('\n')
+        .filter(line => line.trim().startsWith('- '))
+        .map(line => line.replace(/^-\s*/, ''));
+      
+      // Create notes from key points
+      keyPoints.forEach((point, index) => {
+        if (index < 3) { // Limit to 3 notes
+          notes.push({
+            id: Date.now() + index,
+            content: point,
+            color: colors[index],
+            category: topic,
+            createdAt: new Date()
+          });
+        }
+      });
+      
+      setStickyNotes(prev => [...prev, ...notes]);
+      toast('AI-generated sticky notes created successfully!', 'success');
+    } catch (error) {
+      toast(error.message, 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+  
+  // Handle save study material
+  const handleSaveStudyMaterial = () => {
+    if (!currentFolder) {
+      // Prompt to select or create a folder
+      const folderName = prompt('Enter folder name to save to:');
+      if (folderName?.trim()) {
+        handleCreateFolder(folderName.trim(), null);
+        setCurrentFolder(folders.length + 1);
+      }
+    }
+    
+    // Save to current folder
+    const newFile = {
+      id: Date.now(),
+      name: `AI Study Material - ${selectedTopic}.txt`,
+      size: 0, // We don't know the size
+      type: 'text/plain',
+      uploadDate: new Date(),
+      topics: [selectedTopic],
+      content: generatedStudyMaterial,
+      folderId: currentFolder
+    };
+    setFiles(prev => [...prev, newFile]);
+    setUploadedFiles(prev => [...prev, newFile]);
+    toast('AI-generated study material saved successfully!', 'success');
+    setGeneratedStudyMaterial('');
+  };
+  
+  // Handle download study material
+  const handleDownloadStudyMaterial = () => {
+    const element = document.createElement('a');
+    const file = new Blob([generatedStudyMaterial], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `AI Study Material - ${selectedTopic}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    toast('Downloading AI-generated study material...', 'info');
+  };
+  
+  // Handle rating change
+  const handleRatingChange = (subject, rating) => {
+    setUserProfile(prev => ({
+      ...prev,
+      studyInterests: {
+        ...prev.studyInterests,
+        [subject]: rating
+      }
+    }));
+    toast(`Your interest in ${subject} has been updated!`, 'success');
+  };
+  
+  // Add important question
+  const addImportantQuestion = () => {
+    const question = prompt("Enter the important question:");
+    const subject = prompt("Enter the subject:");
+    const difficulty = prompt("Enter difficulty (Easy, Medium, Hard):");
+    if (question && subject && difficulty) {
+      const newQuestion = {
+        id: Date.now(),
+        question: question.trim(),
+        subject: subject.trim(),
+        difficulty: difficulty.trim(),
+        starred: false
+      };
+      setImportantQuestions(prev => [...prev, newQuestion]);
+      toast('Question added successfully!', 'success');
+    }
+  };
+  
+  // Toggle star question
+  const toggleStarQuestion = (id) => {
+    setImportantQuestions(prev =>
+      prev.map(q => q.id === id ? { ...q, starred: !q.starred } : q)
+    );
+  };
+  
+  // Add sticky note
+  const addStickyNote = (content) => {
+    if (content.trim()) {
+      const newNote = {
+        id: Date.now(),
+        content: content.trim(),
+        color: noteColor,
+        category: noteCategory || 'General',
+        createdAt: new Date()
+      };
+      setStickyNotes(prev => [...prev, newNote]);
+      setNewNote('');
+      toast('Note added successfully!', 'success');
+    }
+  };
+  
+  // Edit sticky note
+  const startEditNote = (note) => {
+    setEditingNoteId(note.id);
+    setEditingNoteContent(note.content);
+  };
+  
+  // Save edited note
+  const saveEditedNote = () => {
+    if (editingNoteId && editingNoteContent.trim()) {
+      setStickyNotes(prev =>
+        prev.map(note =>
+          note.id === editingNoteId
+            ? { ...note, content: editingNoteContent.trim() }
+            : note
+        )
+      );
+      toast('Note updated successfully!', 'success');
+    }
+    setEditingNoteId(null);
+    setEditingNoteContent('');
+  };
+  
+  // Cancel editing note
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteContent('');
+  };
+  
+  // Delete sticky note
+  const deleteStickyNote = (id) => {
+    setStickyNotes(prev => prev.filter(note => note.id !== id));
+    toast('Note deleted successfully!', 'success');
+  };
+  
+  // Create study room
+  const createStudyRoom = () => {
+    if (newRoomName.trim()) {
+      const newRoom = {
+        id: Date.now(),
+        name: newRoomName.trim(),
+        members: 1,
+        status: 'scheduled',
+        nextMeeting: 'Not scheduled'
+      };
+      setStudyRooms(prev => [...prev, newRoom]);
+      setNewRoomName('');
+      toast('Study room created successfully!', 'success');
+    }
+  };
+  
+  // Handle logout
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      // Save login details before logout
+      const updatedProfile = {
+        ...userProfile,
+        loginDetails: {
+          ...userProfile.loginDetails,
+          lastLogin: new Date().toISOString(),
+          loginCount: userProfile.loginDetails.loginCount + 1
+        }
+      };
+      setUserProfile(updatedProfile);
+      navigate('/login');
+    }
+  };
+  
+  // Handle backup
+  const handleBackup = () => {
+    toast('Backup process started. Your data will be saved securely.', 'info');
+  };
+  
+  // Handle forgot password
+  const handleForgotPassword = () => {
+    const email = prompt('Enter your email address:');
+    if (email) {
+      toast(`Password reset link sent to ${email}`, 'info');
+    }
+  };
+  
+  // Mark notification as read
+  const markNotificationAsRead = (id) => {
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === id ? { ...notification, read: true } : notification
+      )
+    );
+  };
+  
+  // Delete notification
+  const deleteNotification = (id) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  };
+  
+  // Update settings
+  const updateSetting = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    if (key === 'darkMode') {
+      setDarkMode(value);
+    }
+    if (key === 'apiKey') {
+      AIService.setApiKey(value);
+    }
+  };
+  
+  // Generate squares and cubes
+  const generateSquareCube = () => {
+    const results = [];
+    for (let i = 1; i <= squareCubeRange; i++) {
+      results.push({
+        number: i,
+        square: i * i,
+        cube: i * i * i
+      });
+    }
+    setSquareCubeResults(results);
+  };
+  
+  // Generate multiplication table
+  const generateTable = () => {
+    const results = [];
+    for (let i = 1; i <= tableRange; i++) {
+      results.push({
+        multiplier: i,
+        product: tableNumber * i
+      });
+    }
+    setTableResults(results);
+  };
+  
+  // Timer functions
+  const startTimer = () => {
+    setTimerActive(true);
+  };
+  
+  const pauseTimer = () => {
+    setTimerActive(false);
+  };
+  
+  const resetTimer = () => {
+    setTimerActive(false);
+    setTimerSeconds(0);
+  };
+  
+  const setTimerFromInput = () => {
+    const totalSeconds = (timerMinutes * 60) + timerSecondsInput;
+    setTimerSeconds(totalSeconds);
+    setTimerActive(true);
+  };
+  
+  // Stopwatch functions
+  const startStopwatch = () => {
+    setStopwatchActive(true);
+  };
+  
+  const pauseStopwatch = () => {
+    setStopwatchActive(false);
+  };
+  
+  const resetStopwatch = () => {
+    setStopwatchActive(false);
+    setStopwatchSeconds(0);
+    setLapTimes([]);
+  };
+  
+  const recordLap = () => {
+    setLapTimes(prev => [...prev, stopwatchSeconds]);
+  };
+  
+  // Quiz timer effect
+  useEffect(() => {
+    let interval;
+    if (quizTimerActive && quizTimer > 0) {
+      interval = setInterval(() => {
+        setQuizTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setQuizTimerActive(false);
+            
+            // Auto-submit quiz when time runs out
+            if (currentQuestion < quizQuestions.length - 1) {
+              setCurrentQuestion(prev => prev + 1);
+            } else {
+              // Quiz completed
+              const finalScore = score;
+              const percentage = Math.round((finalScore / quizQuestions.length) * 100);
+              
+              // Prepare results with subjects
+              const results = {
+                score: finalScore,
+                total: quizQuestions.length,
+                percentage: percentage,
+                subjects: quizQuestions.map(q => selectedAssessmentSubject.name),
+                answers: quizQuestions.map((q, i) => ({
+                  ...q,
+                  userAnswer: userAnswers[i],
+                  isCorrect: userAnswers[i] === q.answer
+                }))
+              };
+              
+              setQuizResults(results);
+              setShowQuiz(false);
+              
+              // Save test score to user profile
+              const newScore = {
+                subject: selectedAssessmentSubject.name,
+                score: percentage,
+                date: new Date().toISOString().split('T')[0]
+              };
+              setUserProfile(prev => ({
+                ...prev,
+                testScores: [...prev.testScores, newScore]
+              }));
+              
+              toast(`Time's up! You scored ${percentage}%.`, 'warning');
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [quizTimerActive, quizTimer, currentQuestion, quizQuestions.length, score, userAnswers, selectedAssessmentSubject]);
+  
+  // Timer effect
+  useEffect(() => {
+    let interval;
+    if (timerActive && timerSeconds > 0) {
+      interval = setInterval(() => {
+        setTimerSeconds(prev => prev - 1);
+      }, 1000);
+    } else if (timerActive && timerSeconds === 0) {
+      setTimerActive(false);
+      toast('Timer completed!', 'success');
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timerSeconds]);
+  
+  // Stopwatch effect
+  useEffect(() => {
+    let interval;
+    if (stopwatchActive) {
+      interval = setInterval(() => {
+        setStopwatchSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [stopwatchActive]);
+  
+  // Filter and sort important questions
+  const filteredQuestions = useMemo(() => {
+    let result = [...importantQuestions];
+    
+    // Filter by subject
+    if (activeSubject !== 'all') {
+      result = result.filter(q => q.subject === activeSubject);
+    }
+    
+    // Sort
+    if (sortOrder === 'newest') {
+      result.sort((a, b) => b.id - a.id);
+    } else if (sortOrder === 'oldest') {
+      result.sort((a, b) => a.id - b.id);
+    } else if (sortOrder === 'difficulty') {
+      const difficultyOrder = { 'Easy': 1, 'Medium': 2, 'Hard': 3 };
+      result.sort((a, b) => difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty]);
+    }
+    
+    return result;
+  }, [importantQuestions, activeSubject, sortOrder]);
+  
+  // Chart data
+  const studyHoursData = useMemo(() => ({
+    labels: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    datasets: [{
+      label: 'Study Hours',
+      data: [2.5, 3.2, 1.8, 4.1, 2.9, 3.5, 1.2],
+      backgroundColor: 'rgba(99, 102, 241, 0.8)',
+      borderColor: 'rgba(99, 102, 241, 1)',
+      borderWidth: 1,
+      borderRadius: 8,
+      borderSkipped: false,
+    }],
+  }), []);
+  
+  const subjectDistributionData = useMemo(() => ({
+    labels: ['Mathematics', 'Computer Science', 'English', 'Physics'],
+    datasets: [{
+      data: [30, 25, 20, 25],
+      backgroundColor: [
+        'rgba(99, 102, 241, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)',
+      ],
+      borderWidth: 0,
+      hoverOffset: 4,
+    }],
+  }), []);
+  
+  const performanceData = useMemo(() => ({
+    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+    datasets: [{
+      label: 'Performance Score',
+      data: [72, 78, 85, 88],
+      borderColor: 'rgba(99, 102, 241, 1)',
+      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+      tension: 0.4,
+      fill: true,
+      pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 3,
+      pointRadius: 8,
+      pointHoverRadius: 10,
+    }],
+  }), []);
+  
+  const quizPerformanceData = useMemo(() => ({
+    labels: ['Math', 'Science', 'English', 'History'],
+    datasets: [{
+      label: 'Quiz Scores',
+      data: [85, 78, 92, 88],
+      backgroundColor: [
+        'rgba(99, 102, 241, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)',
+      ],
+      borderWidth: 0,
+      hoverOffset: 4,
+    }],
+  }), []);
+  
+  const weeklyActivityData = useMemo(() => ({
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        label: 'Mathematics',
+        data: [1.2, 0.8, 1.5, 2.0, 1.0, 0.5, 0.8],
+        backgroundColor: 'rgba(99, 102, 241, 0.6)',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+      },
+      {
+        label: 'Computer Science',
+        data: [0.8, 1.2, 0.5, 1.0, 1.5, 2.0, 1.2],
+        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+        borderColor: 'rgba(16, 185, 129, 1)',
+        borderWidth: 1,
+      },
+      {
+        label: 'Physics',
+        data: [0.5, 1.0, 0.8, 0.5, 1.2, 0.8, 0.5],
+        backgroundColor: 'rgba(245, 158, 11, 0.6)',
+        borderColor: 'rgba(245, 158, 11, 1)',
+        borderWidth: 1,
+      },
+      {
+        label: 'English',
+        data: [0.3, 0.5, 0.8, 0.5, 0.8, 0.5, 0.3],
+        backgroundColor: 'rgba(239, 68, 68, 0.6)',
+        borderColor: 'rgba(239, 68, 68, 1)',
+        borderWidth: 1,
+      },
+    ],
+  }), []);
+  
+  const dailyHoursData = useMemo(() => ({
+    labels: ['6 AM', '9 AM', '12 PM', '3 PM', '6 PM', '9 PM'],
+    datasets: [{
+      label: 'Hours Spent',
+      data: [0.5, 1.2, 0.8, 1.5, 2.0, 1.0],
+      backgroundColor: 'rgba(99, 102, 241, 0.2)',
+      borderColor: 'rgba(99, 102, 241, 1)',
+      borderWidth: 2,
+      tension: 0.4,
+      fill: true,
+    }],
+  }), []);
+  
+  const totalTasks = useMemo(() =>
+    TASK_STATUSES.reduce((acc, status) => acc + tasks[status.key].length, 0),
+    [tasks]
+  );
+  
+  const unreadNotifications = useMemo(() =>
+    notifications.filter(n => !n.read).length,
+    [notifications]
+  );
+  
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' },
+        ticks: { color: darkMode ? '#cbd5e1' : '#64748b' },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: darkMode ? '#cbd5e1' : '#64748b' },
+      },
+    },
+  };
+  
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          color: darkMode ? '#cbd5e1' : '#64748b',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+      },
+    },
+  };
+  
+  const areaOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          color: darkMode ? '#cbd5e1' : '#64748b',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' },
+        ticks: { color: darkMode ? '#cbd5e1' : '#64748b' },
+        title: {
+          display: true,
+          text: 'Hours',
+          color: darkMode ? '#cbd5e1' : '#64748b',
+        },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: darkMode ? '#cbd5e1' : '#64748b' },
+      },
+    },
+  };
+  
+  // Format time for timer and stopwatch
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+  
+  // Format time for quiz timer
+  const formatQuizTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+  
+  // Get status color for calendar tasks
+  const getStatusColor = (status) => {
+    const statusObj = TASK_STATUSES.find(s => s.key === status);
+    return statusObj ? statusObj.color : '#6b7280';
+  };
+  
+  // Get events for a specific date
+  const getEventsForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return events.filter(event => event.date === dateStr);
+  };
+  
+  // Get tasks for a specific date
+  const getTasksForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return Object.values(tasks).flat().filter(task => task.dueDate === dateStr);
+  };
+  
+  // Get calendar tasks for a specific date
+  const getCalendarTasksForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return calendarTasks.filter(task => task.date === dateStr);
+  };
+  
+  return (
+    <div className={`${darkMode ? 'dark' : ''} dashboard-container`} onClick={closePopups}>
+      <ToastContainer />
+      
+      {/* Header */}
+      <header className="header">
+        <div className="header-content">
+          <div className="header-logo" onClick={() => navigate('/')}>
+            <img src={logo} alt="Knowtix Logo" className="logo" />
+            <span className="header-title">Knowtix</span>
+          </div>
+          
+          <div className="header-search">
+            <div className="search-container">
+              <FaSearch className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
+          
+          <div className="header-actions">
+            <button
+              onClick={startListening}
+              className={`icon-button ${isListening ? 'recording' : ''}`}
+              aria-label="Voice assistant"
+            >
+              <FaMicrophone />
+            </button>
+            
+            <button
+              onClick={toggleTheme}
+              className="icon-button"
+              aria-label="Toggle theme"
+            >
+              {darkMode ? <FaSun className="text-yellow-400" /> : <FaMoon />}
+            </button>
+            
+            <div className="relative">
+              <button
+                className="icon-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleNotifications();
+                }}
+                aria-label="Notifications"
+              >
+                <FaBell />
+                {unreadNotifications > 0 && (
+                  <span className="notification-badge">{unreadNotifications}</span>
+                )}
+              </button>
+              
+              {showNotifications && (
+                <div className="notification-dropdown">
+                  <div className="dropdown-header">
+                    <h3>Notifications</h3>
+                    <span className="notification-count">{notifications.length}</span>
+                  </div>
+                  
+                  <div className="notification-list">
+                    {notifications.map((notification) => (
+                      <div key={notification.id} className={`notification-item ${!notification.read ? 'unread' : ''}`}>
+                        <div className="notification-content">
+                          <p className="notification-title">{notification.title}</p>
+                          <p className="notification-description">{notification.description}</p>
+                          <p className="notification-date">{notification.time}</p>
+                        </div>
+                        
+                        <div className="notification-actions">
+                          {!notification.read && (
+                            <button
+                              onClick={() => markNotificationAsRead(notification.id)}
+                              className="notification-action-btn"
+                              title="Mark as read"
+                            >
+                              <FaCheck />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteNotification(notification.id)}
+                            className="notification-action-btn"
+                            title="Delete"
+                          >
+                            <FaTimes />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {notifications.length === 0 && (
+                      <div className="no-notifications">
+                        <p>No notifications</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="relative">
+              <button
+                className="icon-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleUserPopup();
+                }}
+                aria-label="User menu"
+              >
+                <FaUserCircle className="text-xl" />
+              </button>
+              
+              {showUserDetails && (
+                <div className="user-popup">
+                  <div className="user-info">
+                    <div className="user-avatar">
+                      {userProfile.profilePic ? (
+                        <img src={userProfile.profilePic} alt="Profile" className="profile-pic" />
+                      ) : (
+                        <FaUserCircle className="text-3xl" />
+                      )}
+                    </div>
+                    <div className="user-details">
+                      <p className="user-name">{userProfile.name}</p>
+                      <p className="user-role">{userProfile.role}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="user-meta">
+                    <p><strong>Email:</strong> {userProfile.email}</p>
+                    <p><strong>Student ID:</strong> {userProfile.studentId}</p>
+                    <p><strong>Last Login:</strong> {new Date(userProfile.loginDetails.lastLogin).toLocaleString()}</p>
+                    <p><strong>Login Count:</strong> {userProfile.loginDetails.loginCount}</p>
+                  </div>
+                  
+                  <div className="user-actions">
+                    <button onClick={handleForgotPassword} className="user-action-btn">
+                      <FaLock /> Forgot Password
+                    </button>
+                    <button onClick={handleBackup} className="user-action-btn">
+                      <FaCog /> Backup Data
+                    </button>
+                    <button onClick={handleLogout} className="user-action-btn logout">
+                      <FaSignOutAlt /> Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      <div className="main-layout">
+        {/* Sidebar */}
+        <aside className="sidebar">
+          <div className="sidebar-content">
+            <h2 className="sidebar-title">Navigation</h2>
+            
+            <nav className="sidebar-nav">
+              {NAVIGATION_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.tabKey}
+                    className={`nav-link ${activeTab === item.tabKey ? 'active' : ''}`}
+                    onClick={() => setActiveTab(item.tabKey)}
+                  >
+                    <Icon />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+              
+              {/* Logout Button */}
+              <button
+                className="nav-link logout"
+                onClick={handleLogout}
+              >
+                <FaSignOutAlt />
+                <span>Logout</span>
+              </button>
+            </nav>
+            
+            {/* Study Progress Section */}
+            <div className="sidebar-section">
+              <h3 className="sidebar-title">Study Progress</h3>
+              
+              <div className="progress-stats">
+                <div className="progress-item">
+                  <div className="progress-label">Daily Goal</div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: '75%' }}></div>
+                  </div>
+                  <div className="progress-value">75%</div>
+                </div>
+                
+                <div className="progress-item">
+                  <div className="progress-label">Weekly Goal</div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: '60%' }}></div>
+                  </div>
+                  <div className="progress-value">60%</div>
+                </div>
+                
+                <div className="progress-item">
+                  <div className="progress-label">Course Completion</div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: '45%' }}></div>
+                  </div>
+                  <div className="progress-value">45%</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Quick Actions Section */}
+            <div className="sidebar-section">
+              <h3 className="sidebar-title">Quick Actions</h3>
+              
+              <div className="quick-actions">
+                <button
+                  className="quick-action-btn"
+                  onClick={() => {
+                    setActiveTab('materials');
+                    setTimeout(() => {
+                      const folderInput = document.querySelector('.folder-creator input');
+                      if (folderInput) folderInput.focus();
+                    }, 100);
+                  }}
+                >
+                  <FaFolderPlus /> New Folder
+                </button>
+                
+                <button
+                  className="quick-action-btn"
+                  onClick={() => {
+                    setActiveTab('notes');
+                    setTimeout(() => {
+                      const noteInput = document.querySelector('.note-creator input');
+                      if (noteInput) noteInput.focus();
+                    }, 100);
+                  }}
+                >
+                  <FaRegStickyNote /> New Note
+                </button>
+                
+                <button
+                  className="quick-action-btn"
+                  onClick={() => {
+                    setActiveTab('questions');
+                    setTimeout(() => addImportantQuestion(), 100);
+                  }}
+                >
+                  <FaQuestionCircle /> Add Question
+                </button>
+                
+                <button
+                  className="quick-action-btn"
+                  onClick={() => {
+                    setActiveTab('ai-content');
+                    setTimeout(() => {
+                      const topicInput = document.querySelector('.ai-content-generator input');
+                      if (topicInput) topicInput.focus();
+                    }, 100);
+                  }}
+                >
+                  <FaRobot /> AI Content
+                </button>
+              </div>
+            </div>
+            
+            {/* Voice command status */}
+            <div className="sidebar-section">
+              <h3 className="sidebar-title">Voice Assistant</h3>
+              
+              <div className="voice-status">
+                <button
+                  onClick={startListening}
+                  className={`voice-btn ${isListening ? 'listening' : ''}`}
+                >
+                  <FaMicrophone /> {isListening ? 'Listening...' : 'Start Voice'}
+                </button>
+                
+                {voiceCommand && (
+                  <div className="voice-command">
+                    <p>Last command: <strong>{voiceCommand}</strong></p>
+                  </div>
+                )}
+                
+                <div className="voice-commands-help">
+                  <p>Try saying:</p>
+                  <ul>
+                    <li>"Go to dashboard"</li>
+                    <li>"Create new folder"</li>
+                    <li>"Start quiz"</li>
+                    <li>"Toggle dark mode"</li>
+                    <li>"Generate AI content"</li>
+                    <li>"Logout"</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+        
+        {/* Main Content */}
+        <main className="dashboard-main">
+          {/* Dashboard Tab */}
+          {activeTab === 'dashboard' && (
+            <>
+              {/* Welcome Section */}
+              <div className="welcome-card">
+                <div className="welcome-content">
+                  <h1>Welcome back, {userProfile.name}!</h1>
+                  <p>Ready to continue your learning journey? Here's your academic overview.</p>
+                </div>
+                <div className="welcome-decoration">
+                  <div className="decoration-circle"></div>
+                  <div className="decoration-circle"></div>
+                </div>
+              </div>
+              
+              {/* Stats Cards */}
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-content">
+                    <div className="stat-info">
+                      <p className="stat-label">Total Study Hours</p>
+                      <p className="stat-value">18.2h</p>
+                      <p className="stat-change positive">+2.5h from last week</p>
+                    </div>
+                    <div className="stat-icon blue">
+                      <FaChartBar />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="stat-card">
+                  <div className="stat-content">
+                    <div className="stat-info">
+                      <p className="stat-label">Active Tasks</p>
+                      <p className="stat-value">{totalTasks}</p>
+                      <p className="stat-change neutral">Tasks in progress</p>
+                    </div>
+                    <div className="stat-icon green">
+                      <FaTasks />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="stat-card">
+                  <div className="stat-content">
+                    <div className="stat-info">
+                      <p className="stat-label">Upcoming Exams</p>
+                      <p className="stat-value">{MOCK_EXAMS.length}</p>
+                      <p className="stat-change warning">Next in 5 days</p>
+                    </div>
+                    <div className="stat-icon orange">
+                      <FaGraduationCap />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="stat-card">
+                  <div className="stat-content">
+                    <div className="stat-info">
+                      <p className="stat-label">Average Score</p>
+                      <p className="stat-value">88%</p>
+                      <p className="stat-change positive">+5% improvement</p>
+                    </div>
+                    <div className="stat-icon purple">
+                      <FaBrain />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Charts Section */}
+              <div className="charts-grid">
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h3>Weekly Study Hours</h3>
+                    <div className="chart-actions">
+                      <button className="chart-action-btn">
+                        <FaEllipsisV />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-container">
+                    <Bar data={studyHoursData} options={chartOptions} />
+                  </div>
+                </div>
+                
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h3>Subject Distribution</h3>
+                    <div className="chart-actions">
+                      <button className="chart-action-btn">
+                        <FaEllipsisV />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-container">
+                    <Doughnut data={subjectDistributionData} options={doughnutOptions} />
+                  </div>
+                </div>
+                
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h3>Performance Trend</h3>
+                    <div className="chart-actions">
+                      <button className="chart-action-btn">
+                        <FaEllipsisV />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-container">
+                    <Line data={performanceData} options={chartOptions} />
+                  </div>
+                </div>
+                
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h3>Weekly Activity by Subject</h3>
+                    <div className="chart-actions">
+                      <button className="chart-action-btn">
+                        <FaEllipsisV />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-container">
+                    <Bar data={weeklyActivityData} options={areaOptions} />
+                  </div>
+                </div>
+                
+                <div className="chart-card">
+                  <div className="chart-header">
+                    <h3>Daily Hours Spent</h3>
+                    <div className="chart-actions">
+                      <button className="chart-action-btn">
+                        <FaEllipsisV />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="chart-container">
+                    <Line data={dailyHoursData} options={areaOptions} />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Document Analysis Section */}
+              <div className="features-section">
+                <h2 className="section-title">Document Analysis</h2>
+                <DocumentAnalysis
+                  analyzedTopics={analyzedTopics}
+                  handleTopicClick={handleTopicClick}
+                  handleFileUpload={handleFileUpload}
+                  documentTypes={DOCUMENT_TYPES}
+                  isAnalyzing={isAnalyzing}
+                />
+              </div>
+              
+              {/* Achievements Section */}
+              <div className="section-container">
+                <div className="section-header">
+                  <h2>Achievements</h2>
+                  <button className="secondary-btn">
+                    View All
+                  </button>
+                </div>
+                
+                <div className="achievements-grid">
+                  {ACHIEVEMENTS.map(achievement => (
+                    <div key={achievement.id} className={`achievement-card ${achievement.unlocked ? '' : 'locked'}`}>
+                      <div className="achievement-icon">
+                        <achievement.icon />
+                      </div>
+                      <h3>{achievement.title}</h3>
+                      <p>{achievement.description}</p>
+                      <div className="achievement-status">
+                        {achievement.unlocked ? (
+                          <span className="status-unlocked">Unlocked</span>
+                        ) : (
+                          <span className="status-locked">Locked</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Content Grid */}
+              <div className="content-grid">
+                {/* Calendar */}
+                <div className="content-card">
+                  <div className="card-header">
+                    <h3>
+                      <FaCalendarAlt className="header-icon" />
+                      Calendar
+                    </h3>
+                  </div>
+                  <div className="calendar-wrapper">
+                    <Calendar
+                      onChange={setSelectedDate}
+                      value={selectedDate}
+                      className="custom-calendar"
+                      tileContent={({ date, view }) => {
+                        if (view === 'month') {
+                          // Check if there are events, tasks, or calendar tasks on this date
+                          const eventsOnDate = getEventsForDate(date);
+                          const tasksOnDate = getTasksForDate(date);
+                          const calendarTasksOnDate = getCalendarTasksForDate(date);
+                          
+                          if (eventsOnDate.length > 0 || tasksOnDate.length > 0 || calendarTasksOnDate.length > 0) {
+                            return (
+                              <div className="calendar-tasks">
+                                {eventsOnDate.slice(0, 2).map(event => (
+                                  <div 
+                                    key={event.id} 
+                                    className="calendar-event-dot" 
+                                    style={{ backgroundColor: event.type === 'exam' ? '#ef4444' : '#3b82f6' }}
+                                  ></div>
+                                ))}
+                                {tasksOnDate.slice(0, 1).map(task => (
+                                  <div 
+                                    key={task.id} 
+                                    className="calendar-task-dot" 
+                                    style={{ backgroundColor: getStatusColor(task.status) }}
+                                  ></div>
+                                ))}
+                                {calendarTasksOnDate.slice(0, 1).map(task => (
+                                  <div 
+                                    key={task.id} 
+                                    className="calendar-task-dot" 
+                                    style={{ backgroundColor: task.completed ? '#10b981' : '#f59e0b' }}
+                                  ></div>
+                                ))}
+                              </div>
+                            );
+                          }
+                        }
+                        return null;
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Study Materials */}
+                <div className="content-card">
+                  <div className="card-header">
+                    <h3>
+                      <FaFolder className="header-icon" />
+                      Recent Materials
+                    </h3>
+                  </div>
+                  <div className="materials-list">
+                    {files.slice(0, 3).map(file => (
+                      <div key={file.id} className="material-item">
+                        <div className="material-icon">
+                          {file.type.includes('image') ? <FaFileAlt className="blue" /> :
+                           file.type.includes('pdf') ? <FaFilePdf className="red" /> :
+                           <FaFileAlt className="green" />}
+                        </div>
+                        <div className="material-info">
+                          <p className="material-title">{file.name}</p>
+                          <p className="material-meta">Updated {new Date(file.uploadDate).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {files.length === 0 && (
+                      <div className="empty-state">
+                        <p>No materials yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Upcoming Exams */}
+                <div className="content-card">
+                  <div className="card-header">
+                    <h3>
+                      <FaGraduationCap className="header-icon" />
+                      Upcoming Exams
+                    </h3>
+                  </div>
+                  <div className="exams-list">
+                    {MOCK_EXAMS.map((exam) => (
+                      <div key={exam.id} className="exam-item">
+                        <div className="exam-info">
+                          <p className="exam-subject">{exam.subject}</p>
+                          <p className="exam-type">{exam.type} • {exam.duration}</p>
+                          <p className="exam-date">
+                            {new Date(exam.date).toLocaleDateString('en-US', {
+                              month: 'short', day: 'numeric', year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                        <div className="exam-status">
+                          <span className="status-badge upcoming">Upcoming</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+          
+          {/* Enhanced Assessment Tab */}
+          {activeTab === 'quiz' && (
+            <div className="quiz-tab">
+              <div className="section-header">
+                <h2>Assessments</h2>
+              </div>
+              
+              {quizResults ? (
+                <AssessmentResults 
+                  results={quizResults}
+                  onRetake={() => startAssessment(selectedAssessmentSubject.id)}
+                  onReview={() => setShowAnswers(!showAnswers)}
+                  onBack={() => setQuizResults(null)}
+                />
+              ) : showQuiz ? (
+                <div className="quiz-container">
+                  <div className="quiz-progress">
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${((currentQuestion + 1) / quizQuestions.length) * 100}%` }}
+                      ></div>
+                    </div>
+                    <div className="quiz-info">
+                      <p>Question {currentQuestion + 1} of {quizQuestions.length}</p>
+                      <div className="quiz-timer">
+                        <FaClock /> {formatQuizTime(quizTimer)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="quiz-question">
+                    <h3>{quizQuestions[currentQuestion].question}</h3>
+                    <div className="quiz-options">
+                      {quizQuestions[currentQuestion].options.map((option, index) => (
+                        <button
+                          key={index}
+                          onClick={() => answerQuestion(index)}
+                          className="quiz-option"
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <AssessmentSelection 
+                  subjects={assessmentSubjects}
+                  startAssessment={startAssessment}
+                />
+              )}
+            </div>
+          )}
+          
+          {/* Study Materials Tab */}
+          {activeTab === 'materials' && (
+            <div className="materials-tab">
+              <div className="section-header">
+                <h2>Study Materials</h2>
+              </div>
+              
+              {/* Document Analysis */}
+              <DocumentAnalysis
+                analyzedTopics={analyzedTopics}
+                handleTopicClick={handleTopicClick}
+                handleFileUpload={handleFileUpload}
+                documentTypes={DOCUMENT_TYPES}
+                isAnalyzing={isAnalyzing}
+              />
+              
+              <div className="materials-content">
+                <FileExplorer
+                  folders={folders}
+                  files={files}
+                  currentFolder={currentFolder}
+                  setCurrentFolder={setCurrentFolder}
+                  createFolder={handleCreateFolder}
+                  createFile={handleCreateFile}
+                  uploadFiles={handleUploadFiles}
+                  deleteItem={handleDeleteItem}
+                  downloadFile={handleDownloadFile}
+                  previewFile={handlePreviewFile}
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Important Questions Tab */}
+          {activeTab === 'questions' && (
+            <ImportantQuestionsTab />
+          )}
+          
+          {/* Sticky Notes Tab */}
+          {activeTab === 'notes' && (
+            <div className="notes-tab">
+              <div className="section-header">
+                <h2>Sticky Notes</h2>
+                <div className="note-creator">
+                  <input
+                    type="text"
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Add a new note..."
+                  />
+                  <select
+                    value={noteCategory}
+                    onChange={(e) => setNoteCategory(e.target.value)}
+                  >
+                    <option value="">Select Category</option>
+                    {SUBJECTS.map(subject => (
+                      <option key={subject.id} value={subject.name}>{subject.name}</option>
+                    ))}
+                  </select>
+                  <div className="color-picker">
+                    {["#fef3c7", "#dbeafe", "#ede9fe", "#fce7f3", "#dcfce7"].map(color => (
+                      <button
+                        key={color}
+                        className={`color-btn ${noteColor === color ? 'active' : ''}`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setNoteColor(color)}
+                      />
+                    ))}
+                  </div>
+                  <button onClick={() => addStickyNote(newNote)}>
+                    <FaPlus /> Add
+                  </button>
+                </div>
+              </div>
+              
+              <div className="notes-grid">
+                {stickyNotes.map(note => (
+                  <div
+                    key={note.id}
+                    className="sticky-note"
+                    style={{ backgroundColor: note.color }}
+                  >
+                    <div className="note-header">
+                      <span className="note-category">{note.category}</span>
+                      <button
+                        onClick={() => deleteStickyNote(note.id)}
+                        className="delete-note-btn"
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                    
+                    {editingNoteId === note.id ? (
+                      <div className="note-edit">
+                        <textarea
+                          value={editingNoteContent}
+                          onChange={(e) => setEditingNoteContent(e.target.value)}
+                          className="note-edit-textarea"
+                          autoFocus
+                        />
+                        <div className="note-edit-actions">
+                          <button onClick={saveEditedNote} className="save-btn">
+                            <FaSave />
+                          </button>
+                          <button onClick={cancelEditNote} className="cancel-btn">
+                            <FaTimes />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="note-content">{note.content}</p>
+                        <div className="note-footer">
+                          <span className="note-date">
+                            {note.createdAt.toLocaleDateString()}
+                          </span>
+                          <button
+                            onClick={() => startEditNote(note)}
+                            className="edit-note-btn"
+                          >
+                            <FaEdit />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Calendar Tab */}
+          {activeTab === 'calendar' && (
+            <CalendarTab events={events} setEvents={setEvents} />
+          )}
+          
+          {/* Collaboration Tab */}
+          {activeTab === 'collaboration' && (
+            <CollaborationTab />
+          )}
+          
+          {/* Timer Tab */}
+          {activeTab === 'timer' && (
+            <div className="timer-tab">
+              <div className="section-header">
+                <h2>Timer & Stopwatch</h2>
+              </div>
+              
+              <div className="timer-container">
+                <div className="timer-section">
+                  <h3>Timer</h3>
+                  <div className="timer-display">
+                    {formatTime(timerSeconds)}
+                  </div>
+                  
+                  <div className="timer-controls">
+                    <button
+                      onClick={startTimer}
+                      disabled={timerActive}
+                      className={`timer-btn ${timerActive ? 'disabled' : 'start'}`}
+                    >
+                      <FaPlay /> Start
+                    </button>
+                    <button
+                      onClick={pauseTimer}
+                      disabled={!timerActive}
+                      className={`timer-btn ${!timerActive ? 'disabled' : 'pause'}`}
+                    >
+                      <FaPause /> Pause
+                    </button>
+                    <button
+                      onClick={resetTimer}
+                      className="timer-btn reset"
+                    >
+                      <FaRedo /> Reset
+                    </button>
+                  </div>
+                  
+                  <div className="timer-input">
+                    <div className="input-group">
+                      <label>Minutes:</label>
+                      <input
+                        type="number"
+                        value={timerMinutes}
+                        onChange={(e) => setTimerMinutes(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Seconds:</label>
+                      <input
+                        type="number"
+                        value={timerSecondsInput}
+                        onChange={(e) => setTimerSecondsInput(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <button
+                      onClick={setTimerFromInput}
+                      className="set-timer-btn"
+                    >
+                      Set Timer
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="stopwatch-section">
+                  <h3>Stopwatch</h3>
+                  <div className="stopwatch-display">
+                    {formatTime(stopwatchSeconds)}
+                  </div>
+                  
+                  <div className="stopwatch-controls">
+                    <button
+                      onClick={startStopwatch}
+                      disabled={stopwatchActive}
+                      className={`stopwatch-btn ${stopwatchActive ? 'disabled' : 'start'}`}
+                    >
+                      <FaPlay /> Start
+                    </button>
+                    <button
+                      onClick={pauseStopwatch}
+                      disabled={!stopwatchActive}
+                      className={`stopwatch-btn ${!stopwatchActive ? 'disabled' : 'pause'}`}
+                    >
+                      <FaPause /> Pause
+                    </button>
+                    <button
+                      onClick={resetStopwatch}
+                      className="stopwatch-btn reset"
+                    >
+                      <FaRedo /> Reset
+                    </button>
+                    <button
+                      onClick={recordLap}
+                      disabled={!stopwatchActive}
+                      className={`stopwatch-btn ${!stopwatchActive ? 'disabled' : 'lap'}`}
+                    >
+                      <FaFlag /> Lap
+                    </button>
+                  </div>
+                  
+                  <div className="lap-times">
+                    <h4>Lap Times</h4>
+                    {lapTimes.length > 0 ? (
+                      <div className="lap-list">
+                        {lapTimes.map((lap, index) => (
+                          <div key={index} className="lap-item">
+                            <span className="lap-number">Lap {index + 1}:</span>
+                            <span className="lap-time">{formatTime(lap)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-laps">No lap times recorded yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="timer-presets">
+                <h3>Timer Presets</h3>
+                <div className="preset-grid">
+                  <button onClick={() => { setTimerMinutes(5); setTimerSecondsInput(0); }} className="preset-btn">
+                    5 Minutes
+                  </button>
+                  <button onClick={() => { setTimerMinutes(10); setTimerSecondsInput(0); }} className="preset-btn">
+                    10 Minutes
+                  </button>
+                  <button onClick={() => { setTimerMinutes(15); setTimerSecondsInput(0); }} className="preset-btn">
+                    15 Minutes
+                  </button>
+                  <button onClick={() => { setTimerMinutes(25); setTimerSecondsInput(0); }} className="preset-btn">
+                    25 Minutes
+                  </button>
+                  <button onClick={() => { setTimerMinutes(30); setTimerSecondsInput(0); }} className="preset-btn">
+                    30 Minutes
+                  </button>
+                  <button onClick={() => { setTimerMinutes(45); setTimerSecondsInput(0); }} className="preset-btn">
+                    45 Minutes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Math Tools Tab */}
+          {activeTab === 'math-tools' && (
+            <div className="math-tools-tab">
+              <div className="section-header">
+                <h2>Math Tools</h2>
+              </div>
+              
+              <div className="math-tools-container">
+                {/* Square and Cube Generator Component */}
+                <div className="math-tool">
+                  <div className="tool-header">
+                    <h3><FaCalculator /> Square & Cube Generator</h3>
+                    <p>Generate squares and cubes of numbers</p>
+                  </div>
+                  
+                  <div className="tool-controls">
+                    <div className="control-group">
+                      <label>Range (1 to N):</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={squareCubeRange}
+                        onChange={(e) => setSquareCubeRange(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <button onClick={generateSquareCube} className="generate-btn">
+                      Generate
+                    </button>
+                  </div>
+                  
+                  <div className="results-container">
+                    {squareCubeResults.length > 0 ? (
+                      <div className="results-table">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Number</th>
+                              <th>Square</th>
+                              <th>Cube</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {squareCubeResults.map((result, index) => (
+                              <tr key={index}>
+                                <td>{result.number}</td>
+                                <td>{result.square}</td>
+                                <td>{result.cube}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="no-results">Enter a range and click Generate</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Shapes Formula Component */}
+                <div className="math-tool">
+                  <div className="tool-header">
+                    <h3><FaShapes /> Geometric Formulas</h3>
+                    <p>Common formulas for geometric shapes</p>
+                  </div>
+                  
+                  <div className="shapes-grid">
+                    {SHAPES_FORMULAS.map((shape, index) => (
+                      <div key={index} className="shape-card">
+                        <div className="shape-icon">
+                          <shape.icon />
+                        </div>
+                        <h4>{shape.name}</h4>
+                        <div className="formulas-list">
+                          {shape.formulas.map((formula, idx) => (
+                            <div key={idx} className="formula-item">
+                              <span className="formula-name">{formula.name}:</span>
+                              <span className="formula-value">{formula.formula}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Tables Generator Component */}
+                <div className="math-tool">
+                  <div className="tool-header">
+                    <h3><FaTableIcon /> Multiplication Tables</h3>
+                    <p>Generate multiplication tables</p>
+                  </div>
+                  
+                  <div className="tool-controls">
+                    <div className="control-group">
+                      <label>Table Number:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={tableNumber}
+                        onChange={(e) => setTableNumber(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>Range (1 to N):</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={tableRange}
+                        onChange={(e) => setTableRange(parseInt(e.target.value) || 10)}
+                      />
+                    </div>
+                    <button onClick={generateTable} className="generate-btn">
+                      Generate
+                    </button>
+                  </div>
+                  
+                  <div className="results-container">
+                    {tableResults.length > 0 ? (
+                      <div className="table-container">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Multiplier</th>
+                              <th>Product</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tableResults.map((result, index) => (
+                              <tr key={index}>
+                                <td>{tableNumber} × {result.multiplier}</td>
+                                <td>{result.product}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="no-results">Enter table number and range, then click Generate</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Code Editor Tab */}
+          {activeTab === 'code-editor' && (
+            <CodeEditor toast={toast} />
+          )}
+          
+          {/* AI Content Tab */}
+          {activeTab === 'ai-content' && (
+            <div className="ai-content-tab">
+              <div className="section-header">
+                <h2>AI Content Generator</h2>
+              </div>
+              <AIContentGenerator toast={toast} />
+            </div>
+          )}
+          
+          {/* Formulas Tab */}
+          {activeTab === 'formulas' && (
+            <FormulasSection />
+          )}
+          
+          {/* Achievements Tab */}
+          {activeTab === 'achievements' && (
+            <AchievementsTab />
+          )}
+          
+          {/* Resources Tab */}
+          {activeTab === 'resources' && (
+            <StudyResourcesTab />
+          )}
+          
+          {/* Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="settings-tab">
+              <div className="section-header">
+                <h2>Settings</h2>
+              </div>
+              
+              <div className="settings-content">
+                <div className="settings-sections">
+                  <div className="settings-card">
+                    <h3>Account Settings</h3>
+                    <div className="settings-form">
+                      <div className="form-group">
+                        <label>Name</label>
+                        <input
+                          type="text"
+                          value={userProfile.name}
+                          onChange={(e) => setUserProfile({...userProfile, name: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Email</label>
+                        <input
+                          type="email"
+                          value={userProfile.email}
+                          onChange={(e) => setUserProfile({...userProfile, email: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Student ID</label>
+                        <input
+                          type="text"
+                          value={userProfile.studentId}
+                          onChange={(e) => setUserProfile({...userProfile, studentId: e.target.value})}
+                        />
+                      </div>
+                      <button className="save-settings-btn">Save Changes</button>
+                    </div>
+                  </div>
+                  
+                  <div className="settings-card">
+                    <h3>AI Service Settings</h3>
+                    <div className="settings-form">
+                      <div className="form-group">
+                        <label>API Key</label>
+                        <input
+                          type="password"
+                          value={AIService.getApiKey()}
+                          onChange={(e) => updateSetting('apiKey', e.target.value)}
+                          placeholder="Enter your AI service API key"
+                        />
+                        <p className="form-help">
+                          Your API key is stored locally and never sent to our servers.
+                        </p>
+                      </div>
+                      <div className="form-group">
+                        <label>Service Status</label>
+                        <div className="service-status">
+                          <div className={`status-indicator ${AIService.getApiKey() ? 'active' : ''}`}></div>
+                          <span>{AIService.getApiKey() ? 'Connected' : 'Not Connected'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="settings-card">
+                    <h3>Login Details</h3>
+                    <div className="login-details">
+                      <div className="detail-item">
+                        <span className="detail-label">Last Login:</span>
+                        <span className="detail-value">{new Date(userProfile.loginDetails.lastLogin).toLocaleString()}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="detail-label">Login Count:</span>
+                        <span className="detail-value">{userProfile.loginDetails.loginCount}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="detail-label">Recent Sessions:</span>
+                        <div className="sessions-list">
+                          {userProfile.loginDetails.sessions.map((session, index) => (
+                            <div key={index} className="session-item">
+                              <span className="session-date">{session.date}</span>
+                              <span className="session-duration">{session.duration}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="settings-card">
+                    <h3>Study Interests</h3>
+                    <div className="ratings-section">
+                      {SUBJECTS.map(subject => (
+                        <div key={subject.id} className="rating-item">
+                          <span>{subject.name}</span>
+                          <div className="rating-stars">
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <button
+                                key={star}
+                                onClick={() => handleRatingChange(subject.name, star)}
+                                className={`star-btn ${userProfile.studyInterests[subject.name] >= star ? 'active' : ''}`}
+                              >
+                                <FaStar />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="settings-card">
+                    <h3>Test Scores</h3>
+                    <div className="scores-list">
+                      {userProfile.testScores.length > 0 ? (
+                        userProfile.testScores.map((score, index) => (
+                          <div key={index} className="score-item">
+                            <div className="score-info">
+                              <p className="score-subject">{score.subject}</p>
+                              <p className="score-date">{score.date}</p>
+                            </div>
+                            <div className="score-value">
+                              <p>{score.score}%</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="no-scores">
+                          <p>No test scores available yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="settings-card">
+                    <h3>Preferences</h3>
+                    <div className="settings-options">
+                      <div className="setting-item">
+                        <div className="setting-info">
+                          <h4>Dark Mode</h4>
+                          <p>Toggle between light and dark themes</p>
+                        </div>
+                        <div className="setting-control">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={settings.darkMode}
+                              onChange={(e) => updateSetting('darkMode', e.target.checked)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="setting-item">
+                        <div className="setting-info">
+                          <h4>Notifications</h4>
+                          <p>Enable or disable notifications</p>
+                        </div>
+                        <div className="setting-control">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={settings.notifications}
+                              onChange={(e) => updateSetting('notifications', e.target.checked)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="setting-item">
+                        <div className="setting-info">
+                          <h4>Voice Commands</h4>
+                          <p>Enable voice assistant features</p>
+                        </div>
+                        <div className="setting-control">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={settings.voiceCommands}
+                              onChange={(e) => updateSetting('voiceCommands', e.target.checked)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="setting-item">
+                        <div className="setting-info">
+                          <h4>Auto Save</h4>
+                          <p>Automatically save your progress</p>
+                        </div>
+                        <div className="setting-control">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={settings.autoSave}
+                              onChange={(e) => updateSetting('autoSave', e.target.checked)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="setting-item">
+                        <div className="setting-info">
+                          <h4>Study Reminders</h4>
+                          <p>Receive reminders for study sessions</p>
+                        </div>
+                        <div className="setting-control">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={settings.studyReminders}
+                              onChange={(e) => updateSetting('studyReminders', e.target.checked)}
+                            />
+                            <span className="slider"></span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="settings-card">
+                    <h3>Data Management</h3>
+                    <div className="data-actions">
+                      <button onClick={handleBackup} className="data-action-btn">
+                        <FaCog /> Backup Data
+                      </button>
+                      <button className="data-action-btn">
+                        <FaFileUpload /> Import Data
+                      </button>
+                      <button className="data-action-btn danger">
+                        <FaTrash /> Clear All Data
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Task Management - Only visible on Calendar Tab */}
+          {activeTab === 'calendar' && (
+            <div className="task-management">
+              <div className="task-header">
+                <h3>
+                  <FaTasks className="header-icon" />
+                  Task Management
+                </h3>
+                <div className="task-actions">
+                  {TASK_STATUSES.map((status) => (
+                    <button
+                      key={status.key}
+                      onClick={() => addTask(status.key)}
+                      className="add-task-btn"
+                      style={{ '--status-color': status.color }}
+                    >
+                      <FaPlus />
+                      <span>Add {status.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="task-board">
+                {TASK_STATUSES.map((status) => (
+                  <div key={status.key} className="task-column">
+                    <div className="column-header">
+                      <div className="column-title">
+                        <div
+                          className="status-indicator"
+                          style={{ backgroundColor: status.color }}
+                        ></div>
+                        <h4>{status.label}</h4>
+                      </div>
+                      <span className="task-count">{tasks[status.key].length}</span>
+                    </div>
+                    
+                    <div className="task-list">
+                      {tasks[status.key].map((task, index) => (
+                        <div key={task.id} className="task-item">
+                          {editingTask?.status === status.key && editingTask?.index === index ? (
+                            <div className="task-edit">
+                              <input
+                                type="text"
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                className="task-edit-input"
+                                onKeyPress={(e) => e.key === 'Enter' && saveEditTask()}
+                                autoFocus
+                              />
+                              <div className="task-edit-actions">
+                                <button onClick={saveEditTask} className="save-btn">
+                                  <FaSave />
+                                </button>
+                                <button onClick={cancelEditTask} className="cancel-btn">
+                                  <FaTimes />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="task-content">
+                                <p className="task-title">{task.title}</p>
+                                <p className="task-date">
+                                  Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                                </p>
+                              </div>
+                              <div className="task-item-actions">
+                                <button
+                                  onClick={() => startEditTask(status.key, index, task.title)}
+                                  className="task-action-btn edit"
+                                >
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  onClick={() => deleteTask(status.key, index)}
+                                  className="task-action-btn delete"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </div>
+                            </>
+                          )}
+                          
+                          {!(editingTask?.status === status.key && editingTask?.index === index) && (
+                            <div className="move-actions">
+                              {TASK_STATUSES.filter(s => s.key !== status.key).map((targetStatus) => (
+                                <button
+                                  key={targetStatus.key}
+                                  onClick={() => moveTask(status.key, targetStatus.key, index)}
+                                  className="move-btn"
+                                  style={{ '--target-color': targetStatus.color }}
+                                >
+                                  <FaArrowRight />
+                                  <span>{targetStatus.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {tasks[status.key].length === 0 && (
+                      <div className="empty-column">
+                        <p>No tasks yet</p>
+                        <button
+                          onClick={() => addTask(status.key)}
+                          className="empty-add-btn"
+                        >
+                          <FaPlus />
+                          Add first task
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
+        
+        {/* Right Sidebar */}
+        <RightSidebar 
+          files={files} 
+          resources={STUDY_RESOURCES.map(resource => ({
+            ...resource,
+            icon: resource.icon || FaBook,
+            count: Math.floor(Math.random() * 20) + 1
+          }))} 
+          quizPerformanceData={quizPerformanceData}
+          doughnutOptions={doughnutOptions}
+        />
+      </div>
+      
+      {/* Quiz Marks Modal */}
+      {showQuizMarksModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Select Quiz Marks</h3>
+              <button onClick={() => setShowQuizMarksModal(false)} className="close-btn">
+                <FaTimes />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="marks-options">
+                {[1, 2, 3, 5, 7, 10, 15, 20, 25].map(mark => (
+                  <button
+                    key={mark}
+                    onClick={() => {
+                      setQuizMarks(mark);
+                      generateQuizQuestions(selectedTopic, mark);
+                    }}
+                    className="mark-option-btn"
+                  >
+                    
+{mark} Mark{mark > 1 ? 's' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Study Material Modal */}
+      {showStudyMaterialModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Generate Study Material</h3>
+              <button onClick={() => setShowStudyMaterialModal(false)} className="close-btn">
+                <FaTimes />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="material-options">
+                <div className="option-card">
+                  <h4>Simple Summary</h4>
+                  <p>Concise overview of key concepts</p>
+                  <button onClick={() => generateStudyMaterial(selectedTopic, 'simple')} className="option-btn">
+                    Generate
+                  </button>
+                </div>
+                <div className="option-card">
+                  <h4>Detailed Notes</h4>
+                  <p>Comprehensive study material with examples</p>
+                  <button onClick={() => generateStudyMaterial(selectedTopic, 'detailed')} className="option-btn">
+                    Generate
+                  </button>
+                </div>
+                <div className="option-card">
+                  <h4>Visual Guide</h4>
+                  <p>Study material with diagrams and visual aids</p>
+                  <button onClick={() => generateStudyMaterial(selectedTopic, 'visual')} className="option-btn">
+                    Generate
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Questions Modal */}
+      {showQuestionsModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Important Questions</h3>
+              <button onClick={() => setShowQuestionsModal(false)} className="close-btn">
+                <FaTimes />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="questions-list">
+                {generatedQuestions.map((question, index) => (
+                  <div key={index} className="question-item">
+                    <div className="question-header">
+                      <span className="question-number">Q{index + 1}</span>
+                      <span className={`question-difficulty ${question.difficulty.toLowerCase()}`}>
+                        {question.difficulty}
+                      </span>
+                    </div>
+                    <p className="question-text">{question.question}</p>
+                    <div className="question-actions">
+                      <button 
+                        onClick={() => {
+                          setImportantQuestions(prev => [...prev, question]);
+                          toast('Question added to your list!', 'success');
+                        }}
+                        className="add-question-btn"
+                      >
+                        Add to My Questions
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Topic Options Modal */}
+      {showTopicOptions && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Generate Content for: {selectedTopic}</h3>
+              <button onClick={() => setShowTopicOptions(false)} className="close-btn">
+                <FaTimes />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="topic-options">
+                <div className="option-card">
+                  <h4>Generate Quiz</h4>
+                  <p>Create a quiz based on this topic</p>
+                  <button onClick={() => handleTopicOptionSelect('quiz')} className="option-btn">
+                    Generate Quiz
+                  </button>
+                </div>
+                <div className="option-card">
+                  <h4>Study Material</h4>
+                  <p>Generate comprehensive study notes</p>
+                  <button onClick={() => handleTopicOptionSelect('study')} className="option-btn">
+                    Generate Material
+                  </button>
+                </div>
+                <div className="option-card">
+                  <h4>Important Questions</h4>
+                  <p>Generate key questions for revision</p>
+                  <button onClick={() => handleTopicOptionSelect('questions')} className="option-btn">
+                    Generate Questions
+                  </button>
+                </div>
+                <div className="option-card">
+                  <h4>Sticky Notes</h4>
+                  <p>Create quick reference notes</p>
+                  <button onClick={() => handleTopicOptionSelect('notes')} className="option-btn">
+                    Generate Notes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* File Preview Modal */}
+      {showFilePreview && filePreview && (
+        <FilePreviewModal 
+          file={filePreview}
+          onClose={() => setShowFilePreview(false)}
+          handleDownloadFile={() => handleDownloadFile(filePreview)}
+          handleDeleteItem={(type, id) => {
+            handleDeleteItem(type, id);
+            setShowFilePreview(false);
+          }}
+          handleUpdateFile={handleUpdateFile}
+        />
+      )}
+      
+      {/* Generated Study Material Modal */}
+      {generatedStudyMaterial && (
+        <StudyMaterialGenerator
+          generatedStudyMaterial={generatedStudyMaterial}
+          handleSaveStudyMaterial={handleSaveStudyMaterial}
+          handleDownloadStudyMaterial={handleDownloadStudyMaterial}
+          setGeneratedStudyMaterial={setGeneratedStudyMaterial}
+        />
+      )}
+    </div>
+  );
+};
+export default Dashboard;

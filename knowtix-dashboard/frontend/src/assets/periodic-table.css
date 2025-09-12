@@ -1,0 +1,212 @@
+/* Periodic Table Styles */
+.periodic-table-container {
+  padding: 1rem;
+  background: var(--card-bg);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.periodic-table {
+  display: grid;
+  grid-template-columns: repeat(18, 1fr);
+  grid-gap: 2px;
+  margin: 1rem 0;
+}
+
+.element {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  padding: 0.25rem;
+  position: relative;
+}
+
+.element:hover {
+  transform: scale(1.1);
+  z-index: 10;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+}
+
+.element.selected {
+  transform: scale(1.1);
+  z-index: 10;
+  box-shadow: 0 0 0 3px var(--primary-color);
+}
+
+.element-number {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  position: absolute;
+  top: 2px;
+  left: 4px;
+}
+
+.element-symbol {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.element-name {
+  font-size: 0.625rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 2px;
+}
+
+.element-mass {
+  font-size: 0.5rem;
+  color: var(--text-secondary);
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+}
+
+/* Element categories */
+.element.alkali-metal {
+  background-color: #ff6666;
+  color: #000;
+}
+
+.element.alkaline-earth-metal {
+  background-color: #ffdead;
+  color: #000;
+}
+
+.element.transition-metal {
+  background-color: #ffc0cb;
+  color: #000;
+}
+
+.element.post-transition-metal {
+  background-color: #cccccc;
+  color: #000;
+}
+
+.element.metalloid {
+  background-color: #cccc99;
+  color: #000;
+}
+
+.element.nonmetal {
+  background-color: #ffff99;
+  color: #000;
+}
+
+.element.halogen {
+  background-color: #ffff99;
+  color: #000;
+}
+
+.element.noble-gas {
+  background-color: #c0ffff;
+  color: #000;
+}
+
+.element.lanthanide {
+  background-color: #ffbfff;
+  color: #000;
+}
+
+.element.actinide {
+  background-color: #ff99cc;
+  color: #000;
+}
+
+/* Element Details Modal */
+.element-details {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--card-bg);
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  z-index: 1000;
+  width: 90%;
+  max-width: 500px;
+}
+
+.element-details h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close-details {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-details:hover {
+  color: var(--text-primary);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .periodic-table {
+    grid-template-columns: repeat(10, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .periodic-table {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  
+  .element {
+    font-size: 0.875rem;
+  }
+  
+  .element-name {
+    display: none;
+  }
+  
+  .element-mass {
+    display: none;
+  }
+}
+
+/* Dark mode styles */
+.dark .periodic-table-container {
+  background: var(--card-bg-dark);
+}
+
+.dark .element-details {
+  background: var(--card-bg-dark);
+}
+
+.dark .detail-row {
+  border-bottom-color: var(--border-color-dark);
+}
