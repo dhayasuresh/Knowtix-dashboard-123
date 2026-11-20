@@ -35,11 +35,16 @@ jobs:
         working-directory: knowtix-dashboard/frontend/frontend
         run: npm ci
 
-      - name: Build React application
+      - name: Build KNOWTIX frontend
         working-directory: knowtix-dashboard/frontend/frontend
         run: npm run build
 
-      - name: Upload build files
+      - name: Verify build output
+        run: |
+          test -f knowtix-dashboard/frontend/frontend/dist/index.html
+          echo "KNOWTIX index.html found successfully"
+
+      - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: knowtix-dashboard/frontend/frontend/dist
