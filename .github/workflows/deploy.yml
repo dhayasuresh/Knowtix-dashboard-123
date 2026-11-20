@@ -29,25 +29,25 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: knowtix-dashboard/frontend/frontend/package-lock.json
+          cache-dependency-path: knowtix-dashboard/frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: knowtix-dashboard/frontend/frontend
+        working-directory: knowtix-dashboard/frontend
         run: npm ci
 
-      - name: Build KNOWTIX frontend
-        working-directory: knowtix-dashboard/frontend/frontend
+      - name: Build KNOWTIX application
+        working-directory: knowtix-dashboard/frontend
         run: npm run build
 
       - name: Verify build output
         run: |
-          test -f knowtix-dashboard/frontend/frontend/dist/index.html
-          echo "KNOWTIX index.html found successfully"
+          test -f knowtix-dashboard/frontend/dist/index.html
+          echo "KNOWTIX dashboard build verified"
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: knowtix-dashboard/frontend/frontend/dist
+          path: knowtix-dashboard/frontend/dist
 
   deploy:
     runs-on: ubuntu-latest
