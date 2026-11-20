@@ -29,28 +29,28 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: knowtix-dashboard/frontend/package-lock.json
+          cache-dependency-path: knowtix-dashboard/frontend/frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: knowtix-dashboard/frontend
+        working-directory: knowtix-dashboard/frontend/frontend
         run: npm ci
 
       - name: Build React application
-        working-directory: knowtix-dashboard/frontend
+        working-directory: knowtix-dashboard/frontend/frontend
         run: npm run build
 
       - name: Upload build files
         uses: actions/upload-pages-artifact@v3
         with:
-          path: knowtix-dashboard/frontend/dist
+          path: knowtix-dashboard/frontend/frontend/dist
 
   deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
-    runs-on: ubuntu-latest
-    needs: build
 
     steps:
       - name: Deploy to GitHub Pages
